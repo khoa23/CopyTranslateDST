@@ -1,0 +1,17 @@
+C:\Users\Khoa.ga\source\repos\CopyTranslateDST\CopyTranslateDST\bin\Debug\net6.0-windows\CopyTranslateDST.exe
+C:\Users\Khoa.ga\source\repos\CopyTranslateDST\CopyTranslateDST\bin\Debug\net6.0-windows\CopyTranslateDST.deps.json
+C:\Users\Khoa.ga\source\repos\CopyTranslateDST\CopyTranslateDST\bin\Debug\net6.0-windows\CopyTranslateDST.runtimeconfig.json
+C:\Users\Khoa.ga\source\repos\CopyTranslateDST\CopyTranslateDST\bin\Debug\net6.0-windows\CopyTranslateDST.dll
+C:\Users\Khoa.ga\source\repos\CopyTranslateDST\CopyTranslateDST\bin\Debug\net6.0-windows\CopyTranslateDST.pdb
+C:\Users\Khoa.ga\source\repos\CopyTranslateDST\CopyTranslateDST\obj\Debug\net6.0-windows\CopyTranslateDST.csproj.AssemblyReference.cache
+C:\Users\Khoa.ga\source\repos\CopyTranslateDST\CopyTranslateDST\obj\Debug\net6.0-windows\CopyTranslateDST.Form1.resources
+C:\Users\Khoa.ga\source\repos\CopyTranslateDST\CopyTranslateDST\obj\Debug\net6.0-windows\CopyTranslateDST.csproj.GenerateResource.cache
+C:\Users\Khoa.ga\source\repos\CopyTranslateDST\CopyTranslateDST\obj\Debug\net6.0-windows\CopyTranslateDST.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\Khoa.ga\source\repos\CopyTranslateDST\CopyTranslateDST\obj\Debug\net6.0-windows\CopyTranslateDST.AssemblyInfoInputs.cache
+C:\Users\Khoa.ga\source\repos\CopyTranslateDST\CopyTranslateDST\obj\Debug\net6.0-windows\CopyTranslateDST.AssemblyInfo.cs
+C:\Users\Khoa.ga\source\repos\CopyTranslateDST\CopyTranslateDST\obj\Debug\net6.0-windows\CopyTranslateDST.csproj.CoreCompileInputs.cache
+C:\Users\Khoa.ga\source\repos\CopyTranslateDST\CopyTranslateDST\obj\Debug\net6.0-windows\CopyTranslateDST.dll
+C:\Users\Khoa.ga\source\repos\CopyTranslateDST\CopyTranslateDST\obj\Debug\net6.0-windows\refint\CopyTranslateDST.dll
+C:\Users\Khoa.ga\source\repos\CopyTranslateDST\CopyTranslateDST\obj\Debug\net6.0-windows\CopyTranslateDST.pdb
+C:\Users\Khoa.ga\source\repos\CopyTranslateDST\CopyTranslateDST\obj\Debug\net6.0-windows\CopyTranslateDST.genruntimeconfig.cache
+C:\Users\Khoa.ga\source\repos\CopyTranslateDST\CopyTranslateDST\obj\Debug\net6.0-windows\ref\CopyTranslateDST.dll

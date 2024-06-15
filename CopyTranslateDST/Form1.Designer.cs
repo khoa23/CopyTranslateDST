@@ -28,64 +28,74 @@
         /// </summary>
         private void InitializeComponent()
         {
-            this.btnOldTrans = new System.Windows.Forms.Button();
-            this.lbOldTrans = new System.Windows.Forms.Label();
-            this.btnNewTrans = new System.Windows.Forms.Button();
-            this.lbNewTrans = new System.Windows.Forms.Label();
-            this.SuspendLayout();
+            btnOldTrans = new Button();
+            lbOldTrans = new Label();
+            btnNewTrans = new Button();
+            lbNewTrans = new Label();
+            btnExecuteCopy = new Button();
+            SuspendLayout();
             // 
             // btnOldTrans
             // 
-            this.btnOldTrans.Location = new System.Drawing.Point(35, 28);
-            this.btnOldTrans.Name = "btnOldTrans";
-            this.btnOldTrans.Size = new System.Drawing.Size(164, 29);
-            this.btnOldTrans.TabIndex = 0;
-            this.btnOldTrans.Text = "Mở bản dịch cũ";
-            this.btnOldTrans.UseVisualStyleBackColor = true;
-            this.btnOldTrans.Click += new System.EventHandler(this.btnOldTrans_Click);
+            btnOldTrans.Location = new Point(35, 28);
+            btnOldTrans.Name = "btnOldTrans";
+            btnOldTrans.Size = new Size(164, 29);
+            btnOldTrans.TabIndex = 0;
+            btnOldTrans.Text = "Mở bản dịch cũ";
+            btnOldTrans.UseVisualStyleBackColor = true;
+            btnOldTrans.Click += btnOldTrans_Click;
             // 
             // lbOldTrans
             // 
-            this.lbOldTrans.AutoSize = true;
-            this.lbOldTrans.Location = new System.Drawing.Point(232, 37);
-            this.lbOldTrans.Name = "lbOldTrans";
-            this.lbOldTrans.Size = new System.Drawing.Size(164, 20);
-            this.lbOldTrans.TabIndex = 1;
-            this.lbOldTrans.Text = "Đường dẫn bản dịch cũ";
+            lbOldTrans.AutoSize = true;
+            lbOldTrans.Location = new Point(232, 37);
+            lbOldTrans.Name = "lbOldTrans";
+            lbOldTrans.Size = new Size(164, 20);
+            lbOldTrans.TabIndex = 1;
+            lbOldTrans.Text = "Đường dẫn bản dịch cũ";
             // 
             // btnNewTrans
             // 
-            this.btnNewTrans.Location = new System.Drawing.Point(35, 104);
-            this.btnNewTrans.Name = "btnNewTrans";
-            this.btnNewTrans.Size = new System.Drawing.Size(164, 29);
-            this.btnNewTrans.TabIndex = 2;
-            this.btnNewTrans.Text = "Mở bản dịch mới";
-            this.btnNewTrans.UseVisualStyleBackColor = true;
-            this.btnNewTrans.Click += new System.EventHandler(this.btnNewTrans_Click);
+            btnNewTrans.Location = new Point(35, 104);
+            btnNewTrans.Name = "btnNewTrans";
+            btnNewTrans.Size = new Size(164, 29);
+            btnNewTrans.TabIndex = 2;
+            btnNewTrans.Text = "Mở bản dịch mới";
+            btnNewTrans.UseVisualStyleBackColor = true;
+            btnNewTrans.Click += btnNewTrans_Click;
             // 
             // lbNewTrans
             // 
-            this.lbNewTrans.AutoSize = true;
-            this.lbNewTrans.Location = new System.Drawing.Point(232, 113);
-            this.lbNewTrans.Name = "lbNewTrans";
-            this.lbNewTrans.Size = new System.Drawing.Size(175, 20);
-            this.lbNewTrans.TabIndex = 3;
-            this.lbNewTrans.Text = "Đường dẫn bản dịch mới";
+            lbNewTrans.AutoSize = true;
+            lbNewTrans.Location = new Point(232, 113);
+            lbNewTrans.Name = "lbNewTrans";
+            lbNewTrans.Size = new Size(175, 20);
+            lbNewTrans.TabIndex = 3;
+            lbNewTrans.Text = "Đường dẫn bản dịch mới";
+            // 
+            // btnExecuteCopy
+            // 
+            btnExecuteCopy.Location = new Point(430, 297);
+            btnExecuteCopy.Name = "btnExecuteCopy";
+            btnExecuteCopy.Size = new Size(314, 65);
+            btnExecuteCopy.TabIndex = 0;
+            btnExecuteCopy.Text = "btnCompareAndCopy";
+            btnExecuteCopy.Click += btnExecuteCopy_Click;
             // 
             // Form1
             // 
-            this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 20F);
-            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(1245, 543);
-            this.Controls.Add(this.lbNewTrans);
-            this.Controls.Add(this.btnNewTrans);
-            this.Controls.Add(this.lbOldTrans);
-            this.Controls.Add(this.btnOldTrans);
-            this.Name = "Form1";
-            this.Text = "Copy Translate Don\'t Starve Together";
-            this.ResumeLayout(false);
-            this.PerformLayout();
-
+            AutoScaleDimensions = new SizeF(8F, 20F);
+            AutoScaleMode = AutoScaleMode.Font;
+            ClientSize = new Size(1245, 543);
+            Controls.Add(btnExecuteCopy);
+            Controls.Add(lbNewTrans);
+            Controls.Add(btnNewTrans);
+            Controls.Add(lbOldTrans);
+            Controls.Add(btnOldTrans);
+            Name = "Form1";
+            Text = "Copy Translate Don't Starve Together";
+            ResumeLayout(false);
+            PerformLayout();
         }
 
         #endregion
@@ -94,5 +104,6 @@
         private Label lbOldTrans;
         private Button btnNewTrans;
         private Label lbNewTrans;
+        private Button btnExecuteCopy;
     }
 }

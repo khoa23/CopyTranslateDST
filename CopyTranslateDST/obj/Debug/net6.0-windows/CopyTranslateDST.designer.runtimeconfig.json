@@ -13,7 +13,8 @@
     ],
     "additionalProbingPaths": [
       "C:\\Users\\Khoa.ga\\.dotnet\\store\\|arch|\\|tfm|",
-      "C:\\Users\\Khoa.ga\\.nuget\\packages"
+      "C:\\Users\\Khoa.ga\\.nuget\\packages",
+      "C:\\Program Files\\dotnet\\sdk\\NuGetFallbackFolder"
     ],
     "configProperties": {
       "Microsoft.NETCore.DotNetHostPolicy.SetAppPaths": true

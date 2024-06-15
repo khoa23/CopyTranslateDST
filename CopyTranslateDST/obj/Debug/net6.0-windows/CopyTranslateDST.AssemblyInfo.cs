@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("CopyTranslateDST")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+ccb85449a7b2ca9a69cf854746737a74f92691d8")]
 [assembly: System.Reflection.AssemblyProductAttribute("CopyTranslateDST")]
 [assembly: System.Reflection.AssemblyTitleAttribute("CopyTranslateDST")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

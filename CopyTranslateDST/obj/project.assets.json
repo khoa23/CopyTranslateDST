@@ -8,17 +8,21 @@
     "net6.0-windows7.0": []
   },
   "packageFolders": {
-    "C:\\Users\\Khoa.ga\\.nuget\\packages\\": {}
+    "C:\\Users\\Khoa.ga\\.nuget\\packages\\": {},
+    "C:\\Program Files\\dotnet\\sdk\\NuGetFallbackFolder": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\Khoa.ga\\source\\repos\\CopyTranslateDST\\CopyTranslateDST\\CopyTranslateDST.csproj",
+      "projectUniqueName": "E:\\Code\\CopyTranslateDST\\CopyTranslateDST\\CopyTranslateDST.csproj",
       "projectName": "CopyTranslateDST",
-      "projectPath": "C:\\Users\\Khoa.ga\\source\\repos\\CopyTranslateDST\\CopyTranslateDST\\CopyTranslateDST.csproj",
+      "projectPath": "E:\\Code\\CopyTranslateDST\\CopyTranslateDST\\CopyTranslateDST.csproj",
       "packagesPath": "C:\\Users\\Khoa.ga\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\Khoa.ga\\source\\repos\\CopyTranslateDST\\CopyTranslateDST\\obj\\",
+      "outputPath": "E:\\Code\\CopyTranslateDST\\CopyTranslateDST\\obj\\",
       "projectStyle": "PackageReference",
+      "fallbackFolders": [
+        "C:\\Program Files\\dotnet\\sdk\\NuGetFallbackFolder"
+      ],
       "configFilePaths": [
         "C:\\Users\\Khoa.ga\\AppData\\Roaming\\NuGet\\NuGet.Config",
         "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
@@ -40,6 +44,11 @@
         "warnAsError": [
           "NU1605"
         ]
+      },
+      "restoreAuditProperties": {
+        "enableAudit": "true",
+        "auditLevel": "low",
+        "auditMode": "direct"
       }
     },
     "frameworks": {
@@ -64,7 +73,7 @@
             "privateAssets": "none"
           }
         },
-        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\7.0.103\\RuntimeIdentifierGraph.json"
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.202\\RuntimeIdentifierGraph.json"
       }
     }
   }

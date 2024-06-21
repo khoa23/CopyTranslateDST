@@ -1,0 +1,5 @@
+E:\Code\CopyTranslateDST\release\CopyTranslateDST.exe
+E:\Code\CopyTranslateDST\release\CopyTranslateDST.dll
+E:\Code\CopyTranslateDST\release\CopyTranslateDST.deps.json
+E:\Code\CopyTranslateDST\release\CopyTranslateDST.runtimeconfig.json
+E:\Code\CopyTranslateDST\release\CopyTranslateDST.pdb

@@ -1,0 +1,17 @@
+E:\Code\CopyTranslateDST\CopyTranslateDST\bin\Release\net8.0-windows7.0\CopyTranslateDST.exe
+E:\Code\CopyTranslateDST\CopyTranslateDST\bin\Release\net8.0-windows7.0\CopyTranslateDST.deps.json
+E:\Code\CopyTranslateDST\CopyTranslateDST\bin\Release\net8.0-windows7.0\CopyTranslateDST.runtimeconfig.json
+E:\Code\CopyTranslateDST\CopyTranslateDST\bin\Release\net8.0-windows7.0\CopyTranslateDST.dll
+E:\Code\CopyTranslateDST\CopyTranslateDST\bin\Release\net8.0-windows7.0\CopyTranslateDST.pdb
+E:\Code\CopyTranslateDST\CopyTranslateDST\obj\Release\net8.0-windows7.0\CopyTranslateDST.Form1.resources
+E:\Code\CopyTranslateDST\CopyTranslateDST\obj\Release\net8.0-windows7.0\CopyTranslateDST.csproj.GenerateResource.cache
+E:\Code\CopyTranslateDST\CopyTranslateDST\obj\Release\net8.0-windows7.0\CopyTranslateDST.GeneratedMSBuildEditorConfig.editorconfig
+E:\Code\CopyTranslateDST\CopyTranslateDST\obj\Release\net8.0-windows7.0\CopyTranslateDST.AssemblyInfoInputs.cache
+E:\Code\CopyTranslateDST\CopyTranslateDST\obj\Release\net8.0-windows7.0\CopyTranslateDST.AssemblyInfo.cs
+E:\Code\CopyTranslateDST\CopyTranslateDST\obj\Release\net8.0-windows7.0\CopyTranslateDST.csproj.CoreCompileInputs.cache
+E:\Code\CopyTranslateDST\CopyTranslateDST\obj\Release\net8.0-windows7.0\CopyTranslateDST.sourcelink.json
+E:\Code\CopyTranslateDST\CopyTranslateDST\obj\Release\net8.0-windows7.0\CopyTranslateDST.dll
+E:\Code\CopyTranslateDST\CopyTranslateDST\obj\Release\net8.0-windows7.0\refint\CopyTranslateDST.dll
+E:\Code\CopyTranslateDST\CopyTranslateDST\obj\Release\net8.0-windows7.0\CopyTranslateDST.pdb
+E:\Code\CopyTranslateDST\CopyTranslateDST\obj\Release\net8.0-windows7.0\CopyTranslateDST.genruntimeconfig.cache
+E:\Code\CopyTranslateDST\CopyTranslateDST\obj\Release\net8.0-windows7.0\ref\CopyTranslateDST.dll

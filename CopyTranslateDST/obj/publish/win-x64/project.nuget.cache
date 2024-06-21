@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "dgSpecHash": "Utn7QZmjtt+AkoRRA6nI7qQhnSA2mjHHlxUbi9lpE3tgexHzvoNrtSNznqXZS9lVkaQD420tcqcsU8IDKb93yQ==",
+  "success": true,
+  "projectFilePath": "E:\\Code\\CopyTranslateDST\\CopyTranslateDST\\CopyTranslateDST.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\Khoa.ga\\.nuget\\packages\\microsoft.net.illink.tasks\\8.0.3\\microsoft.net.illink.tasks.8.0.3.nupkg.sha512",
+    "C:\\Users\\Khoa.ga\\.nuget\\packages\\microsoft.netcore.app.runtime.win-x64\\8.0.3\\microsoft.netcore.app.runtime.win-x64.8.0.3.nupkg.sha512",
+    "C:\\Users\\Khoa.ga\\.nuget\\packages\\microsoft.windowsdesktop.app.runtime.win-x64\\8.0.3\\microsoft.windowsdesktop.app.runtime.win-x64.8.0.3.nupkg.sha512",
+    "C:\\Users\\Khoa.ga\\.nuget\\packages\\microsoft.aspnetcore.app.runtime.win-x64\\8.0.3\\microsoft.aspnetcore.app.runtime.win-x64.8.0.3.nupkg.sha512",
+    "C:\\Users\\Khoa.ga\\.nuget\\packages\\microsoft.netcore.app.crossgen2.win-x64\\8.0.3\\microsoft.netcore.app.crossgen2.win-x64.8.0.3.nupkg.sha512"
+  ],
+  "logs": []
+}

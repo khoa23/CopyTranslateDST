@@ -28,6 +28,7 @@
         /// </summary>
         private void InitializeComponent()
         {
+            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(Form1));
             btnOldTrans = new Button();
             lbOldTrans = new Label();
             btnNewTrans = new Button();
@@ -39,16 +40,16 @@
             // 
             btnOldTrans.Location = new Point(35, 28);
             btnOldTrans.Name = "btnOldTrans";
-            btnOldTrans.Size = new Size(164, 29);
+            btnOldTrans.Size = new Size(247, 29);
             btnOldTrans.TabIndex = 0;
-            btnOldTrans.Text = "Mở bản dịch cũ";
+            btnOldTrans.Text = "Mở bản dịch cũ/Old translation";
             btnOldTrans.UseVisualStyleBackColor = true;
             btnOldTrans.Click += btnOldTrans_Click;
             // 
             // lbOldTrans
             // 
             lbOldTrans.AutoSize = true;
-            lbOldTrans.Location = new Point(232, 37);
+            lbOldTrans.Location = new Point(303, 37);
             lbOldTrans.Name = "lbOldTrans";
             lbOldTrans.Size = new Size(164, 20);
             lbOldTrans.TabIndex = 1;
@@ -58,16 +59,16 @@
             // 
             btnNewTrans.Location = new Point(35, 104);
             btnNewTrans.Name = "btnNewTrans";
-            btnNewTrans.Size = new Size(164, 29);
+            btnNewTrans.Size = new Size(247, 29);
             btnNewTrans.TabIndex = 2;
-            btnNewTrans.Text = "Mở bản dịch mới";
+            btnNewTrans.Text = "Mở bản dịch mới/New translation";
             btnNewTrans.UseVisualStyleBackColor = true;
             btnNewTrans.Click += btnNewTrans_Click;
             // 
             // lbNewTrans
             // 
             lbNewTrans.AutoSize = true;
-            lbNewTrans.Location = new Point(232, 113);
+            lbNewTrans.Location = new Point(303, 104);
             lbNewTrans.Name = "lbNewTrans";
             lbNewTrans.Size = new Size(175, 20);
             lbNewTrans.TabIndex = 3;
@@ -79,7 +80,7 @@
             btnExecuteCopy.Name = "btnExecuteCopy";
             btnExecuteCopy.Size = new Size(314, 65);
             btnExecuteCopy.TabIndex = 0;
-            btnExecuteCopy.Text = "btnCompareAndCopy";
+            btnExecuteCopy.Text = "Compare And Copy";
             btnExecuteCopy.Click += btnExecuteCopy_Click;
             // 
             // Form1
@@ -92,6 +93,7 @@
             Controls.Add(btnNewTrans);
             Controls.Add(lbOldTrans);
             Controls.Add(btnOldTrans);
+            Icon = (Icon)resources.GetObject("$this.Icon");
             Name = "Form1";
             Text = "Copy Translate Don't Starve Together";
             ResumeLayout(false);

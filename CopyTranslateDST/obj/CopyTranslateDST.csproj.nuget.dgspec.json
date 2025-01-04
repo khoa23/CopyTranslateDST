@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "E:\\Code\\CopyTranslateDST\\CopyTranslateDST\\CopyTranslateDST.csproj": {}
+    "D:\\Code\\CopyTranslateDST\\CopyTranslateDST\\CopyTranslateDST.csproj": {}
   },
   "projects": {
-    "E:\\Code\\CopyTranslateDST\\CopyTranslateDST\\CopyTranslateDST.csproj": {
+    "D:\\Code\\CopyTranslateDST\\CopyTranslateDST\\CopyTranslateDST.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "E:\\Code\\CopyTranslateDST\\CopyTranslateDST\\CopyTranslateDST.csproj",
+        "projectUniqueName": "D:\\Code\\CopyTranslateDST\\CopyTranslateDST\\CopyTranslateDST.csproj",
         "projectName": "CopyTranslateDST",
-        "projectPath": "E:\\Code\\CopyTranslateDST\\CopyTranslateDST\\CopyTranslateDST.csproj",
+        "projectPath": "D:\\Code\\CopyTranslateDST\\CopyTranslateDST\\CopyTranslateDST.csproj",
         "packagesPath": "C:\\Users\\Khoa.ga\\.nuget\\packages\\",
-        "outputPath": "E:\\Code\\CopyTranslateDST\\CopyTranslateDST\\obj\\",
+        "outputPath": "D:\\Code\\CopyTranslateDST\\CopyTranslateDST\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files\\dotnet\\sdk\\NuGetFallbackFolder"

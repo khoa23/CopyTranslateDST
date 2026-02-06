@@ -1,23 +1,24 @@
 {
   "format": 1,
   "restore": {
-    "E:\\Code\\CopyTranslateDST\\CopyTranslateDST\\CopyTranslateDST.csproj": {}
+    "D:\\Code\\CopyTranslateDST\\CopyTranslateDST\\CopyTranslateDST.csproj": {}
   },
   "projects": {
-    "E:\\Code\\CopyTranslateDST\\CopyTranslateDST\\CopyTranslateDST.csproj": {
+    "D:\\Code\\CopyTranslateDST\\CopyTranslateDST\\CopyTranslateDST.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "E:\\Code\\CopyTranslateDST\\CopyTranslateDST\\CopyTranslateDST.csproj",
+        "projectUniqueName": "D:\\Code\\CopyTranslateDST\\CopyTranslateDST\\CopyTranslateDST.csproj",
         "projectName": "CopyTranslateDST",
-        "projectPath": "E:\\Code\\CopyTranslateDST\\CopyTranslateDST\\CopyTranslateDST.csproj",
-        "packagesPath": "C:\\Users\\Khoa.ga\\.nuget\\packages\\",
-        "outputPath": "E:\\Code\\CopyTranslateDST\\CopyTranslateDST\\obj\\publish\\win-x64\\",
+        "projectPath": "D:\\Code\\CopyTranslateDST\\CopyTranslateDST\\CopyTranslateDST.csproj",
+        "packagesPath": "C:\\Users\\hodan\\.nuget\\packages\\",
+        "outputPath": "D:\\Code\\CopyTranslateDST\\CopyTranslateDST\\obj\\publish\\win-x64\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
-          "C:\\Program Files\\dotnet\\sdk\\NuGetFallbackFolder"
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
         ],
         "configFilePaths": [
-          "C:\\Users\\Khoa.ga\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Users\\hodan\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
         ],
         "originalTargetFrameworks": [
@@ -25,6 +26,7 @@
         ],
         "sources": {
           "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "C:\\Program Files\\dotnet\\library-packs": {},
           "https://api.nuget.org/v3/index.json": {}
         },
         "frameworks": {
@@ -42,7 +44,8 @@
           "enableAudit": "true",
           "auditLevel": "low",
           "auditMode": "direct"
-        }
+        },
+        "SdkAnalysisLevel": "9.0.300"
       },
       "frameworks": {
         "net8.0-windows7.0": {
@@ -51,7 +54,7 @@
             "Microsoft.NET.ILLink.Tasks": {
               "suppressParent": "All",
               "target": "Package",
-              "version": "[8.0.3, )",
+              "version": "[8.0.23, )",
               "autoReferenced": true
             }
           },
@@ -69,19 +72,19 @@
           "downloadDependencies": [
             {
               "name": "Microsoft.AspNetCore.App.Runtime.win-x64",
-              "version": "[8.0.3, 8.0.3]"
+              "version": "[8.0.23, 8.0.23]"
             },
             {
               "name": "Microsoft.NETCore.App.Crossgen2.win-x64",
-              "version": "[8.0.3, 8.0.3]"
+              "version": "[8.0.23, 8.0.23]"
             },
             {
               "name": "Microsoft.NETCore.App.Runtime.win-x64",
-              "version": "[8.0.3, 8.0.3]"
+              "version": "[8.0.23, 8.0.23]"
             },
             {
               "name": "Microsoft.WindowsDesktop.App.Runtime.win-x64",
-              "version": "[8.0.3, 8.0.3]"
+              "version": "[8.0.23, 8.0.23]"
             }
           ],
           "frameworkReferences": {
@@ -92,7 +95,7 @@
               "privateAssets": "none"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.202/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.310/PortableRuntimeIdentifierGraph.json"
         }
       },
       "runtimes": {

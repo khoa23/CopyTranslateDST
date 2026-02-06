@@ -422,7 +422,7 @@ namespace CopyTranslateDST
                 btnGoogleTranslate.Text = "Đang dịch...";
 
                 string text = rtbBanDichTrong.Text;
-                WriteLog("Bắt đầu tiến trình dịch tự động...");
+                WriteLog("Bắt đầu tiến trình dịch tự động (Đa luồng: 3)...");
                 WriteLog($"Tổng độ dài văn bản gốc: {text.Length} ký tự.");
 
                 // Sử dụng Regex để split chuẩn hơn, tránh lỗi xuống dòng khác nhau giữa các hệ thống
@@ -431,88 +431,113 @@ namespace CopyTranslateDST
                 var filteredEntries = entries.Where(e => !string.IsNullOrWhiteSpace(e) && (e.Contains("msgid") || e.Contains("msgstr"))).ToList();
                 
                 WriteLog($"Tìm thấy {filteredEntries.Count} đoạn văn bản PO để xử lý.");
-                List<string> translatedEntries = new List<string>();
+                
+                int totalCount = filteredEntries.Count;
+                int successCountForSave = 0;
+                int totalSuccessCount = 0;
+                int maxToTranslate = (int)numMaxTrans.Value;
+                object saveLock = new object();
+
+                WriteLog($"Giới hạn dịch tối đa được thiết lập: {maxToTranslate} câu.");
 
                 using (HttpClient client = new HttpClient())
                 {
-                    int totalCount = filteredEntries.Count;
-                    int successCountForSave = 0;
-                    int totalSuccessCount = 0;
-                    int maxToTranslate = (int)numMaxTrans.Value;
+                    // Thiết lập Timeout dài hơn một chút cho đa luồng
+                    client.Timeout = TimeSpan.FromSeconds(30);
 
-                    WriteLog($"Giới hạn dịch tối đa được thiết lập: {maxToTranslate} câu.");
+                    var indexedEntries = filteredEntries.Select((entry, index) => new { entry, index }).ToList();
+                    var cts = new CancellationTokenSource();
+                    var parallelOptions = new ParallelOptions 
+                    { 
+                        MaxDegreeOfParallelism = 3,
+                        CancellationToken = cts.Token
+                    };
 
-                    for (int i = 0; i < totalCount; i++)
+                    try
                     {
-                        if (totalSuccessCount >= maxToTranslate)
+                        await Parallel.ForEachAsync(indexedEntries, parallelOptions, async (item, token) =>
                         {
-                            WriteLog($"Đã chạm giới hạn tối đa ({maxToTranslate} câu). Dừng tiến trình.");
-                            break;
-                        }
-
-                        string entry = filteredEntries[i];
-                        string[] lines = entry.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
-                        StringBuilder fullMsgId = new StringBuilder();
-                        int msgstrIndex = -1;
-                        bool collectingMsgId = false;
-
-                        for (int j = 0; j < lines.Length; j++)
-                        {
-                            string trimmedLine = lines[j].Trim();
-                            if (trimmedLine.StartsWith("msgid "))
+                            // Kiểm tra giới hạn câu dịch
+                            if (Interlocked.CompareExchange(ref totalSuccessCount, 0, 0) >= maxToTranslate)
                             {
-                                string val = GetValueFromLine(lines[j]);
-                                fullMsgId.Append(val);
-                                collectingMsgId = true;
+                                cts.Cancel();
+                                return;
                             }
-                            else if (trimmedLine.StartsWith("msgstr"))
+
+                            string entry = item.entry;
+                            string[] lines = entry.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
+                            StringBuilder fullMsgId = new StringBuilder();
+                            int msgstrIndex = -1;
+                            bool collectingMsgId = false;
+
+                            for (int j = 0; j < lines.Length; j++)
                             {
-                                msgstrIndex = j; 
-                                collectingMsgId = false;
+                                string trimmedLine = lines[j].Trim();
+                                if (trimmedLine.StartsWith("msgid "))
+                                {
+                                    string val = GetValueFromLine(lines[j]);
+                                    fullMsgId.Append(val);
+                                    collectingMsgId = true;
+                                }
+                                else if (trimmedLine.StartsWith("msgstr"))
+                                {
+                                    msgstrIndex = j;
+                                    collectingMsgId = false;
+                                }
+                                else if (collectingMsgId && trimmedLine.StartsWith("\""))
+                                {
+                                    fullMsgId.Append(GetValueFromLine(lines[j]));
+                                }
                             }
-                            else if (collectingMsgId && trimmedLine.StartsWith("\""))
+
+                            string finalMsgId = fullMsgId.ToString();
+                            if (!string.IsNullOrEmpty(finalMsgId) && msgstrIndex != -1)
                             {
-                                fullMsgId.Append(GetValueFromLine(lines[j]));
+                                WriteLog($"[{item.index + 1}/{totalCount}] Đang dịch: {finalMsgId}");
+                                string translatedText = await TranslateTextAsync(client, finalMsgId);
+                                WriteLog($"   -> [{item.index + 1}] Kết quả: {translatedText}");
+
+                                lines[msgstrIndex] = $"msgstr \"{translatedText}\"";
+                                filteredEntries[item.index] = string.Join(Environment.NewLine, lines);
+
+                                // Tăng đếm tổng số câu đã dịch thành công
+                                int currentTotal = Interlocked.Increment(ref totalSuccessCount);
+                                
+                                // Xử lý lưu dự phòng mỗi 100 câu
+                                int currentSave = Interlocked.Increment(ref successCountForSave);
+                                if (currentSave >= 100)
+                                {
+                                    lock (saveLock)
+                                    {
+                                        if (successCountForSave >= 100)
+                                        {
+                                            successCountForSave = 0;
+                                            WriteLog($"Đã đạt mốc {currentTotal} câu. Đang tự động lưu dự phòng...");
+                                            
+                                            // Cập nhật UI
+                                            string currentContent = string.Join(Environment.NewLine + Environment.NewLine, filteredEntries);
+                                            this.Invoke((MethodInvoker)delegate { rtbBanDichTrong.Text = currentContent; });
+
+                                            // Lưu file
+                                            string filePath = lbDuongDanBanDich.Text;
+                                            SaveRichTextBoxToFile(filePath);
+                                            WriteLog($"---> Đã tự động lưu thành công tại mốc {currentTotal} câu.");
+                                        }
+                                    }
+                                }
                             }
-                        }
-
-                        string finalMsgId = fullMsgId.ToString();
-                        if (!string.IsNullOrEmpty(finalMsgId) && msgstrIndex != -1)
-                        {
-                            WriteLog($"[{i + 1}/{totalCount}] Đang dịch: {finalMsgId}");
-                            string translatedText = await TranslateTextAsync(client, finalMsgId);
-                            WriteLog($"   -> Kết quả: {translatedText}");
-                            
-                            lines[msgstrIndex] = $"msgstr \"{translatedText}\"";
-                            filteredEntries[i] = string.Join(Environment.NewLine, lines); // Cập nhật lại danh sách gốc
-                            
-                            successCountForSave++;
-                            totalSuccessCount++;
-                        }
-
-                        // Cứ mỗi 100 câu dịch thành công thì lưu một lần
-                        if (successCountForSave >= 100)
-                        {
-                            WriteLog("Đã đạt mốc 100 câu mới. Đang tự động lưu dự phòng...");
-                            
-                            // Cập nhật UI để người dùng thấy tiến độ
-                            string currentContent = string.Join(Environment.NewLine + Environment.NewLine, filteredEntries);
-                            this.Invoke((MethodInvoker)delegate { rtbBanDichTrong.Text = currentContent; });
-
-                            // Thực hiện lưu vào file
-                            string filePath = lbDuongDanBanDich.Text;
-                            await Task.Run(() => SaveRichTextBoxToFile(filePath));
-                            
-                            WriteLog($"---> Đã tự động lưu thành công tại mốc {totalSuccessCount} câu.");
-                            successCountForSave = 0; 
-                        }
+                        });
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        WriteLog($"Đã chạm giới hạn tối đa ({maxToTranslate} câu) hoặc tiến trình bị hủy.");
                     }
                 }
 
                 // Cập nhật kết quả cuối cùng lên giao diện
                 rtbBanDichTrong.Text = string.Join(Environment.NewLine + Environment.NewLine, filteredEntries);
 
-                var result = MessageBox.Show("Dịch tự động hoàn tất! Bạn có muốn lưu kết quả này vào file ngay không?", "Thành công", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                var result = MessageBox.Show("Dịch tự động đa luồng hoàn tất! Bạn có muốn lưu kết quả này vào file ngay không?", "Thành công", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
                 if (result == DialogResult.Yes)
                 {
                     string filePath = lbDuongDanBanDich.Text;

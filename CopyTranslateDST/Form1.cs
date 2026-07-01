@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
@@ -15,10 +15,20 @@ namespace CopyTranslateDST
     {
         private string fileOldTransPath;
         private string fileNewTransPath;
+        private static readonly System.Threading.SemaphoreSlim _saveSemaphore = new System.Threading.SemaphoreSlim(1, 1);
+
+        public class PoEntry
+        {
+            public string Context { get; set; }
+            public string Id { get; set; }
+            public string CurrentStr { get; set; }
+            public string Prefix { get; set; }
+        }
 
         public Form1()
         {
             InitializeComponent();
+            SetupDgvEval();
         }
 
         private void btnOldTrans_Click(object sender, EventArgs e)
@@ -751,6 +761,861 @@ namespace CopyTranslateDST
             
             // Cũng in ra Debug để tiện debug
             System.Diagnostics.Debug.WriteLine($"[{time}] {message}");
+        }
+        private bool HasPunctuationMismatch(string s1, string s2)
+        {
+            if (string.IsNullOrEmpty(s1) || string.IsNullOrEmpty(s2)) return false;
+            
+            string t1 = s1.TrimEnd();
+            string t2 = s2.TrimEnd();
+            
+            if (t1.Length == 0 || t2.Length == 0) return false;
+
+            char last1 = t1[t1.Length - 1];
+            char last2 = t2[t2.Length - 1];
+
+            char[] puncts = { '.', '!', '?', ':', ';', ',', '\u2026' };
+            
+            bool isP1 = puncts.Contains(last1);
+            bool isP2 = puncts.Contains(last2);
+
+            if (isP1 != isP2) return true;
+            if (isP1 && isP2 && last1 != last2) return true;
+
+            return false;
+        }
+
+        private List<PoEntry> ProcessPoFileForAllEntries(string filePath)
+        {
+            var entries = new List<PoEntry>();
+            string currentCtxt = "";
+            var idBuilder = new StringBuilder();
+            var strBuilder = new StringBuilder();
+            
+            bool collectingId = false;
+            bool collectingStr = false;
+
+            foreach (var rawLine in File.ReadLines(filePath, Encoding.UTF8))
+            {
+                string line = rawLine.TrimStart();
+                if (line.StartsWith("#. "))
+                {
+                    currentCtxt = GetValueFromLine(rawLine);
+                }
+                else if (line.StartsWith("msgctxt "))
+                {
+                    currentCtxt = GetValueFromLine(rawLine);
+                    collectingId = false;
+                    collectingStr = false;
+                }
+                else if (line.StartsWith("msgid "))
+                {
+                    idBuilder.Clear();
+                    idBuilder.Append(GetValueFromLine(rawLine));
+                    collectingId = true;
+                    collectingStr = false;
+                }
+                else if (line.StartsWith("msgstr "))
+                {
+                    strBuilder.Clear();
+                    strBuilder.Append(GetValueFromLine(rawLine));
+                    collectingId = false;
+                    collectingStr = true;
+                }
+                else if (line.StartsWith("\""))
+                {
+                    if (collectingId) idBuilder.Append(GetValueFromLine(rawLine));
+                    else if (collectingStr) strBuilder.Append(GetValueFromLine(rawLine));
+                }
+                else if (string.IsNullOrWhiteSpace(line))
+                {
+                    if (idBuilder.Length > 0)
+                    {
+                        if (string.IsNullOrEmpty(currentCtxt) || (!currentCtxt.StartsWith("STRINGS.NAMES") && !currentCtxt.StartsWith("\"STRINGS.NAMES")))
+                        {
+                            entries.Add(new PoEntry 
+                            { 
+                                Context = currentCtxt, 
+                                Id = idBuilder.ToString(), 
+                                CurrentStr = strBuilder.ToString(),
+                                Prefix = GetPrefix(currentCtxt)
+                            });
+                        }
+                    }
+                    currentCtxt = "";
+                    idBuilder.Clear();
+                    strBuilder.Clear();
+                    collectingId = false;
+                    collectingStr = false;
+                }
+            }
+
+            if (idBuilder.Length > 0)
+            {
+                if (string.IsNullOrEmpty(currentCtxt) || (!currentCtxt.StartsWith("STRINGS.NAMES") && !currentCtxt.StartsWith("\"STRINGS.NAMES")))
+                {
+                    entries.Add(new PoEntry 
+                    { 
+                        Context = currentCtxt, 
+                        Id = idBuilder.ToString(), 
+                        CurrentStr = strBuilder.ToString(),
+                        Prefix = GetPrefix(currentCtxt)
+                    });
+                }
+            }
+
+            return entries;
+        }
+
+        private bool UpdatePoFileWithMap(string filePath, Dictionary<string, string> updates)
+        {
+            string fullPath = Path.GetFullPath(filePath);
+            WriteEvalLog($"[LƯU FILE] Bắt đầu cập nhật file PO. Đường dẫn đầy đủ: {fullPath}");
+            if (!File.Exists(fullPath))
+            {
+                WriteEvalLog($"[LƯU FILE] ❌ LỖI: File không tồn tại tại đường dẫn: {fullPath}");
+                return false;
+            }
+
+            DateTime beforeWriteTime = File.GetLastWriteTime(fullPath);
+            WriteEvalLog($"[LƯU FILE] Thời gian sửa đổi file trước khi ghi: {beforeWriteTime:yyyy-MM-dd HH:mm:ss.fff}");
+
+            foreach (var kvp in updates)
+            {
+                WriteEvalLog($"[LƯU FILE] Cần cập nhật key: '{kvp.Key}' -> '{kvp.Value}'");
+            }
+
+            string[] poLines = File.ReadAllLines(fullPath, Encoding.UTF8);
+            List<string> outputLines = new List<string>();
+            string currentCtxt = "";
+            string currentId = "";
+            bool collectingMsgId = false;
+            bool foundAny = false;
+
+            for (int i = 0; i < poLines.Length; i++)
+            {
+                string line = poLines[i];
+                string trimmed = line.Trim();
+
+                if (trimmed.StartsWith("#. "))
+                {
+                    currentCtxt = GetValueFromLine(line);
+                    outputLines.Add(line);
+                }
+                else if (trimmed.StartsWith("msgctxt "))
+                {
+                    currentCtxt = GetValueFromLine(line);
+                    outputLines.Add(line);
+                }
+                else if (trimmed.StartsWith("msgid "))
+                {
+                    currentId = GetValueFromLine(line);
+                    collectingMsgId = true;
+                    outputLines.Add(line);
+                }
+                else if (collectingMsgId && trimmed.StartsWith("\""))
+                {
+                    currentId += GetValueFromLine(line);
+                    outputLines.Add(line);
+                }
+                else if (trimmed.StartsWith("msgstr"))
+                {
+                    collectingMsgId = false;
+                    string key = (currentCtxt ?? "") + "|" + currentId;
+                    if (updates.ContainsKey(key))
+                    {
+                        foundAny = true;
+                        string cleanVal = updates[key].Replace("\"", "\\\"");
+                        string oldLine = line;
+                        string newLine = $"msgstr \"{cleanVal}\"";
+                        WriteEvalLog($"[LƯU FILE] tìm thấy dòng khớp key '{key}'.");
+                        WriteEvalLog($"[LƯU FILE] Dòng cũ: {oldLine}");
+                        WriteEvalLog($"[LƯU FILE] Dòng mới: {newLine}");
+                        outputLines.Add(newLine);
+                        
+                        int next = i + 1;
+                        while (next < poLines.Length && poLines[next].Trim().StartsWith("\""))
+                        {
+                            WriteEvalLog($"[LƯU FILE] Bỏ qua dòng phụ msgstr cũ: {poLines[next]}");
+                            i = next;
+                            next++;
+                        }
+                    }
+                    else
+                    {
+                        outputLines.Add(line);
+                    }
+                    currentCtxt = "";
+                    currentId = "";
+                }
+                else
+                {
+                    outputLines.Add(line);
+                }
+            }
+
+            if (foundAny)
+            {
+                try
+                {
+                    File.WriteAllLines(fullPath, outputLines, Encoding.UTF8);
+                    // Đọc lại thuộc tính file để chắc chắn
+                    DateTime afterWriteTime = File.GetLastWriteTime(fullPath);
+                    long fileLength = new FileInfo(fullPath).Length;
+                    WriteEvalLog($"[LƯU FILE] ✔ Đã ghi file thành công. Số dòng: {outputLines.Count}. Kích thước file: {fileLength} bytes. Thời gian sửa đổi mới: {afterWriteTime:yyyy-MM-dd HH:mm:ss.fff}");
+                }
+                catch (Exception writeEx)
+                {
+                    WriteEvalLog($"[LƯU FILE] ❌ LỖI khi ghi xuống đĩa: {writeEx.Message}");
+                    throw;
+                }
+            }
+            else
+            {
+                WriteEvalLog($"[LƯU FILE] ⚠ Không tìm thấy key nào để cập nhật trong file PO.");
+            }
+            return foundAny;
+        }
+
+
+        // ============================================================
+        // Tab: Đánh giá & Dịch lại
+        // ============================================================
+
+        private string _evalFilePath = "";
+        private ComboBox? cbContextFilter;
+        private Label? lbContextFilter;
+        private Label? lbNoTranslate;
+        private TextBox? txtNoTranslate;
+        private List<PoEntry>? _allEvalEntries;
+
+        private void LoadNoTranslateWords()
+        {
+            try
+            {
+                string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "notranslate.txt");
+                if (File.Exists(path))
+                {
+                    txtNoTranslate.Text = File.ReadAllText(path, Encoding.UTF8);
+                }
+                else
+                {
+                    // Default values for Don't Starve Together
+                    txtNoTranslate.Text = "Wilson, Willow, Wolfgang, Wendy, WX-78, Wickerbottom, Woodie, Wes, Maxwell, Wigfrid, Webber, Winona, Wortox, Wormwood, Wurt, Walter, Wanda, abigail, Deerclops";
+                    File.WriteAllText(path, txtNoTranslate.Text, Encoding.UTF8);
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("Error loading no-translate words: " + ex.Message);
+            }
+        }
+
+        private void TxtNoTranslate_TextChanged(object sender, EventArgs e)
+        {
+            try
+            {
+                string path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "notranslate.txt");
+                File.WriteAllText(path, txtNoTranslate.Text, Encoding.UTF8);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("Error saving no-translate words: " + ex.Message);
+            }
+        }
+
+        private string GetPrefix(string context)
+        {
+            if (string.IsNullOrEmpty(context)) return "Khác";
+
+            ReadOnlySpan<char> span = context.AsSpan();
+            int dotCount = 0;
+            int prefixEndIndex = -1;
+
+            for (int i = 0; i < span.Length; i++)
+            {
+                if (span[i] == '.')
+                {
+                    dotCount++;
+                    if (dotCount == 5)
+                    {
+                        prefixEndIndex = i;
+                        break;
+                    }
+                }
+            }
+
+            if (dotCount == 0) return context;
+            
+            if (prefixEndIndex == -1)
+            {
+                prefixEndIndex = context.LastIndexOf('.');
+            }
+
+            return span.Slice(0, prefixEndIndex + 1).ToString();
+        }
+
+        private void SetupDgvEval()
+        {
+            dgvEval.Columns.Clear();
+            dgvEval.Columns.Add("Context", "Ngữ cảnh");
+            dgvEval.Columns.Add("English", "Tiếng Anh (gốc)");
+            dgvEval.Columns.Add("Vietnamese", "Tiếng Việt (hiện tại)");
+            dgvEval.Columns.Add("SuggestedTrans", "Dịch lại (AI)");
+            dgvEval.Columns.Add("EvalScore", "Điểm đánh giá");
+            dgvEval.Columns.Add("EvalComment", "Nhận xét");
+
+            var btnAcceptEval = new DataGridViewButtonColumn();
+            btnAcceptEval.HeaderText = "Chấp nhận";
+            btnAcceptEval.Text = "OK";
+            btnAcceptEval.UseColumnTextForButtonValue = true;
+            btnAcceptEval.Name = "btnAcceptEval";
+            dgvEval.Columns.Add(btnAcceptEval);
+
+            var btnRejectEval = new DataGridViewButtonColumn();
+            btnRejectEval.HeaderText = "Bỏ qua";
+            btnRejectEval.Text = "Skip";
+            btnRejectEval.UseColumnTextForButtonValue = true;
+            btnRejectEval.Name = "btnRejectEval";
+            dgvEval.Columns.Add(btnRejectEval);
+
+            dgvEval.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+            dgvEval.Columns["Context"].FillWeight = 30;
+            dgvEval.Columns["English"].FillWeight = 45;
+            dgvEval.Columns["Vietnamese"].FillWeight = 45;
+            dgvEval.Columns["SuggestedTrans"].FillWeight = 45;
+            dgvEval.Columns["EvalScore"].FillWeight = 18;
+            dgvEval.Columns["EvalComment"].FillWeight = 55;
+            dgvEval.Columns["btnAcceptEval"].AutoSizeMode = DataGridViewAutoSizeColumnMode.None;
+            dgvEval.Columns["btnAcceptEval"].Width = 80;
+            dgvEval.Columns["btnRejectEval"].AutoSizeMode = DataGridViewAutoSizeColumnMode.None;
+            dgvEval.Columns["btnRejectEval"].Width = 70;
+
+            dgvEval.CellContentClick += dgvEval_CellContentClick;
+
+            // Add dynamic filter ComboBox
+            if (cbContextFilter == null)
+            {
+                lbContextFilter = new Label();
+                lbContextFilter.Text = "Lọc theo:";
+                lbContextFilter.AutoSize = true;
+                lbContextFilter.Location = new Point(dgvEval.Left, dgvEval.Top - 25);
+                tabPageEval.Controls.Add(lbContextFilter);
+
+                cbContextFilter = new ComboBox();
+                cbContextFilter.DropDownStyle = ComboBoxStyle.DropDown;
+                cbContextFilter.AutoCompleteMode = AutoCompleteMode.SuggestAppend;
+                cbContextFilter.AutoCompleteSource = AutoCompleteSource.ListItems;
+                cbContextFilter.Location = new Point(dgvEval.Left + 60, dgvEval.Top - 28);
+                cbContextFilter.Size = new Size(350, 23);
+                cbContextFilter.SelectedIndexChanged += CbContextFilter_SelectedIndexChanged;
+                cbContextFilter.TextUpdate += CbContextFilter_TextUpdate;
+                tabPageEval.Controls.Add(cbContextFilter);
+                
+                // Move DataGridView and RichTextBox down by 35px to make room
+                int offset = 35;
+                dgvEval.Top += offset;
+                dgvEval.Height -= offset;
+                rtbLogEval.Top += offset;
+                rtbLogEval.Height -= offset;
+                
+                lbContextFilter.Top += offset;
+                cbContextFilter.Top += offset;
+
+                lbNoTranslate = new Label();
+                lbNoTranslate.Text = "Từ không dịch:";
+                lbNoTranslate.AutoSize = true;
+                lbNoTranslate.Location = new Point(dgvEval.Left + 430, dgvEval.Top - 25);
+                tabPageEval.Controls.Add(lbNoTranslate);
+
+                txtNoTranslate = new TextBox();
+                txtNoTranslate.Location = new Point(dgvEval.Left + 520, dgvEval.Top - 28);
+                txtNoTranslate.Size = new Size(dgvEval.Width - 520, 23);
+                txtNoTranslate.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+                LoadNoTranslateWords();
+                txtNoTranslate.TextChanged += TxtNoTranslate_TextChanged;
+                tabPageEval.Controls.Add(txtNoTranslate);
+            }
+        }
+
+        private void CbContextFilter_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (_allEvalEntries == null || cbContextFilter.SelectedItem == null) return;
+            
+            string selected = cbContextFilter.SelectedItem.ToString();
+            if (selected == "Tất cả")
+            {
+                PopulateDgvEval(_allEvalEntries);
+            }
+            else
+            {
+                var filtered = _allEvalEntries.Where(entry => entry.Prefix == selected).ToList();
+                PopulateDgvEval(filtered);
+            }
+        }
+
+        private void CbContextFilter_TextUpdate(object? sender, EventArgs e)
+        {
+            if (_allEvalEntries == null) return;
+
+            string filterText = cbContextFilter.Text.Trim();
+            if (string.IsNullOrEmpty(filterText) || filterText == "Tất cả")
+            {
+                PopulateDgvEval(_allEvalEntries);
+            }
+            else
+            {
+                var filtered = _allEvalEntries.Where(entry =>
+                    (entry.Prefix != null && entry.Prefix.Contains(filterText, StringComparison.OrdinalIgnoreCase)) ||
+                    (entry.Context != null && entry.Context.Contains(filterText, StringComparison.OrdinalIgnoreCase))
+                ).ToList();
+                PopulateDgvEval(filtered);
+            }
+        }
+
+        private void PopulateDgvEval(List<PoEntry> entries)
+        {
+            dgvEval.SuspendLayout();
+            dgvEval.Rows.Clear();
+            
+            var rows = new DataGridViewRow[entries.Count];
+            for (int i = 0; i < entries.Count; i++)
+            {
+                var row = new DataGridViewRow();
+                row.CreateCells(dgvEval, entries[i].Context, entries[i].Id, entries[i].CurrentStr, "", "", "");
+                rows[i] = row;
+            }
+            dgvEval.Rows.AddRange(rows);
+            dgvEval.ResumeLayout();
+        }
+
+        private async void btnMoBanDichEval_Click(object sender, EventArgs e)
+        {
+            using OpenFileDialog fbd = new OpenFileDialog
+            {
+                Title = "Chọn file dịch để đánh giá",
+                Filter = "PO Files (*.po)|*.po|All Files (*.*)|*.*"
+            };
+
+            if (fbd.ShowDialog() != DialogResult.OK) return;
+
+            _evalFilePath = fbd.FileName;
+            lbDuongDanBanDichEval.Text = _evalFilePath;
+
+            try
+            {
+                btnMoBanDichEval.Enabled = false;
+                btnMoBanDichEval.Text = "Đang xử lý...";
+                dgvEval.Rows.Clear();
+                rtbLogEval.Clear();
+                WriteEvalLog($"Đang tải dữ liệu từ: {_evalFilePath}");
+
+                _allEvalEntries = await Task.Run(() => ProcessPoFileForAllEntries(_evalFilePath));
+                
+                // Populate cbContextFilter
+                var prefixes = _allEvalEntries
+                    .Select(entry => entry.Prefix)
+                    .Distinct()
+                    .OrderBy(p => p)
+                    .ToList();
+                    
+                cbContextFilter.SelectedIndexChanged -= CbContextFilter_SelectedIndexChanged;
+                cbContextFilter.Items.Clear();
+                cbContextFilter.Items.Add("Tất cả");
+                foreach (var p in prefixes)
+                {
+                    cbContextFilter.Items.Add(p);
+                }
+                cbContextFilter.SelectedIndex = 0; // Trigger "Tất cả" explicitly
+                cbContextFilter.SelectedIndexChanged += CbContextFilter_SelectedIndexChanged;
+
+                PopulateDgvEval(_allEvalEntries);
+                WriteEvalLog($"Đã tải {_allEvalEntries.Count} mục.");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Đã xảy ra lỗi khi đọc file: " + ex.Message, "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                btnMoBanDichEval.Enabled = true;
+                btnMoBanDichEval.Text = "Mở file Đánh giá";
+            }
+        }
+
+        private async void btnEval_Click(object sender, EventArgs e)
+        {
+            if (dgvEval.Rows.Count == 0)
+            {
+                MessageBox.Show("Vui lòng mở file PO trước khi đánh giá.", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            string apiKey = txtAnythingApiKey.Text.Trim();
+            if (string.IsNullOrWhiteSpace(apiKey))
+            {
+                MessageBox.Show("Vui lòng nhập API key AnythingLLM.", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+            
+            string apiUrl = txtAnythingIp.Text.Trim();
+            if (string.IsNullOrWhiteSpace(apiUrl))
+            {
+                apiUrl = "http://localhost:3001";
+            }
+            apiUrl = apiUrl.TrimEnd('/');
+
+            try
+            {
+                btnEval.Enabled = false;
+                btnEval.Text = "Đang đánh giá...";
+                int limit = (int)numLimitEval.Value;
+                int processed = 0;
+
+                foreach (DataGridViewRow row in dgvEval.Rows)
+                {
+                    if (row.IsNewRow) continue;
+                    if (processed >= limit) break;
+
+                    string original = row.Cells["English"].Value?.ToString() ?? "";
+                    string currentTrans = row.Cells["Vietnamese"].Value?.ToString() ?? "";
+                    if (string.IsNullOrWhiteSpace(original)) continue;
+
+                    row.Cells["EvalScore"].Value = "...";
+                    var result = await EvaluateTranslationAsync(apiUrl, apiKey, original, currentTrans);
+                    row.Cells["EvalScore"].Value = result.Score;
+                    row.Cells["EvalComment"].Value = result.Comment;
+                    row.Cells["SuggestedTrans"].Value = result.Suggested;
+
+                    processed++;
+                    WriteEvalLog($"Đã đánh giá {processed}: {original}");
+                }
+
+                WriteEvalLog($"Hoàn tất đánh giá {processed} mục.");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Lỗi: " + ex.Message, "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                btnEval.Enabled = true;
+                btnEval.Text = "Đánh giá & Dịch";
+            }
+        }
+
+        private async Task<(string Score, string Comment, string Suggested)> EvaluateTranslationAsync(string apiUrl, string apiKey, string original, string currentTrans)
+        {
+            try
+            {
+                // Check if the original word is exactly in the no-translate list
+                if (txtNoTranslate != null && !string.IsNullOrWhiteSpace(txtNoTranslate.Text))
+                {
+                    var noTranslateList = txtNoTranslate.Text.Split(',')
+                        .Select(w => w.Trim())
+                        .Where(w => !string.IsNullOrEmpty(w))
+                        .ToList();
+
+                    if (noTranslateList.Any(w => string.Equals(original.Trim(), w, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        string matchedWord = noTranslateList.First(w => string.Equals(original.Trim(), w, StringComparison.OrdinalIgnoreCase));
+                        return ("10", "Từ khóa giữ nguyên không dịch.", matchedWord);
+                    }
+                }
+
+                string baseUrl = apiUrl;
+                string noTranslateInstructions = "";
+                if (txtNoTranslate != null && !string.IsNullOrWhiteSpace(txtNoTranslate.Text))
+                {
+                    noTranslateInstructions = $"\nLưu ý quan trọng: Các từ/cụm từ sau đây bắt buộc giữ nguyên không được phép dịch sang tiếng Việt: {txtNoTranslate.Text.Trim()}.\n";
+                }
+
+                string prompt =
+                    $"Bạn là chuyên gia dịch thuật game Don't Starve sang tiếng Việt.\n" +
+                    $"Văn bản gốc (tiếng Anh): \"{original}\"\n" +
+                    $"Bản dịch hiện tại (tiếng Việt): \"{currentTrans}\"\n" +
+                    noTranslateInstructions +
+                    $"\nHãy:\n" +
+                    $"1. Cho điểm chất lượng bản dịch từ 1-10 (chỉ số nguyên).\n" +
+                    $"2. Nhận xét ngắn gọn (1-2 câu).\n" +
+                    $"3. Đề xuất bản dịch tốt hơn nếu điểm < 8, nếu không cần thì để trống.\n\n" +
+                    $"Trả lời ĐÚNG định dạng JSON sau, không thêm gì khác:\n" +
+                    $"{{\"score\":8,\"comment\":\"Nhận xét\",\"suggested\":\"Bản dịch đề xuất\"}}";
+
+                var payload = new
+                {
+                    message = prompt,
+                    mode = "chat"
+                };
+
+                string jsonBody = JsonSerializer.Serialize(payload);
+                string maskedApiKey = apiKey.Length <= 8 ? "***" : $"{apiKey.Substring(0, 4)}...{apiKey.Substring(apiKey.Length - 4)}";
+
+                using var client = new HttpClient();
+                client.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiKey}");
+                client.Timeout = TimeSpan.FromSeconds(60);
+
+                string? workspaceSlug = await ResolveAnythingWorkspaceSlugAsync(client, baseUrl);
+                if (string.IsNullOrWhiteSpace(workspaceSlug))
+                {
+                    WriteEvalLog("ERROR: Không lấy được workspace slug hợp lệ từ AnythingLLM.");
+                    return ("Err", "Không lấy được workspace slug", "");
+                }
+
+                string url = $"{baseUrl}/api/v1/workspace/{Uri.EscapeDataString(workspaceSlug)}/chat";
+
+                WriteEvalLog("===== AnythingLLM REQUEST =====");
+                WriteEvalLog($"POST {url}");
+                WriteEvalLog($"Workspace slug: {workspaceSlug}");
+                WriteEvalLog($"Authorization: Bearer {maskedApiKey}");
+                WriteEvalLog($"Body: {jsonBody}");
+
+                var response = await client.PostAsync(url, new StringContent(jsonBody, Encoding.UTF8, "application/json"));
+                string raw = await response.Content.ReadAsStringAsync();
+
+                WriteEvalLog("===== AnythingLLM RESPONSE =====");
+                WriteEvalLog($"Status: {(int)response.StatusCode} {response.ReasonPhrase}");
+                WriteEvalLog($"Body: {raw}");
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    WriteEvalLog($"ERROR: AnythingLLM trả về HTTP {(int)response.StatusCode}. Kiểm tra API key, workspace slug, hoặc server AnythingLLM.");
+                    return ("Err", $"HTTP {(int)response.StatusCode}: {raw}", "");
+                }
+
+                string textResponse = "";
+                try
+                {
+                    using var doc = JsonDocument.Parse(raw);
+                    if (doc.RootElement.TryGetProperty("textResponse", out var tr))
+                    {
+                        textResponse = tr.GetString() ?? "";
+                    }
+                    else
+                    {
+                        WriteEvalLog("ERROR: Response JSON không có field 'textResponse'.");
+                    }
+                }
+                catch (JsonException jsonEx)
+                {
+                    WriteEvalLog($"ERROR: Không parse được response JSON: {jsonEx.Message}");
+                    return ("Err", jsonEx.Message, "");
+                }
+
+                if (string.IsNullOrWhiteSpace(textResponse))
+                {
+                    WriteEvalLog("ERROR: textResponse rỗng, nên không có bản dịch/đánh giá để hiển thị.");
+                    return ("Err", "textResponse rỗng", "");
+                }
+
+                WriteEvalLog($"textResponse: {textResponse}");
+
+                int start = textResponse.IndexOf('{');
+                int end = textResponse.LastIndexOf('}');
+                if (start >= 0 && end > start)
+                {
+                    string jsonPart = textResponse.Substring(start, end - start + 1);
+                    WriteEvalLog($"Parsed JSON candidate: {jsonPart}");
+
+                    try
+                    {
+                        // Sửa một số lỗi phổ biến của LLM trước khi parse
+                        string fixedJson = jsonPart.Replace("\"suggested:\":", "\"suggested\":")
+                                                   .Replace("\"suggested:\"", "\",\"suggested\":\"");
+                        using var inner = JsonDocument.Parse(fixedJson);
+                        string score = inner.RootElement.TryGetProperty("score", out var s) ? s.ToString() : "?";
+                        string comment = inner.RootElement.TryGetProperty("comment", out var c) ? c.GetString() ?? "" : "";
+                        string suggested = inner.RootElement.TryGetProperty("suggested", out var sg) ? sg.GetString() ?? "" : "";
+                        WriteEvalLog($"Parsed result => score={score}, suggested={suggested}");
+                        return (score, comment, suggested);
+                    }
+                    catch (JsonException jsonEx)
+                    {
+                        WriteEvalLog($"JSON parse failed: {jsonEx.Message}. Attempting Regex fallback...");
+                        string scoreStr = "?";
+                        string commentStr = "";
+                        string suggestedStr = "";
+
+                        var matchScore = System.Text.RegularExpressions.Regex.Match(jsonPart, @"\""score\""\s*:\s*(\d+)");
+                        if (matchScore.Success) scoreStr = matchScore.Groups[1].Value;
+
+                        var matchComment = System.Text.RegularExpressions.Regex.Match(jsonPart, @"comment[^a-zA-Z0-9]*([\s\S]*?)(?:\""?suggested|\})", System.Text.RegularExpressions.RegexOptions.Singleline);
+                        if (matchComment.Success)
+                        {
+                            commentStr = matchComment.Groups[1].Value.Trim();
+                            commentStr = commentStr.TrimStart('"', ':').TrimEnd('"', ',', ' ');
+                        }
+
+                        var matchSuggested = System.Text.RegularExpressions.Regex.Match(jsonPart, @"suggested[^a-zA-Z0-9]*([\s\S]*?)\}", System.Text.RegularExpressions.RegexOptions.Singleline);
+                        if (matchSuggested.Success)
+                        {
+                            suggestedStr = matchSuggested.Groups[1].Value.Trim();
+                            suggestedStr = suggestedStr.TrimStart('"', ':').TrimEnd('"').Trim();
+                        }
+
+                        if (matchScore.Success || matchComment.Success || matchSuggested.Success)
+                        {
+                            WriteEvalLog($"Regex fallback result => score={scoreStr}, suggested={suggestedStr}");
+                            return (scoreStr, commentStr, suggestedStr);
+                        }
+
+                        return ("Err", jsonEx.Message, "");
+                    }
+                }
+
+                WriteEvalLog("ERROR: Không tìm thấy object JSON { ... } trong textResponse.");
+                return ("Err", textResponse, "");
+            }
+            catch (Exception ex)
+            {
+                WriteEvalLog($"ERROR: Lỗi khi gọi AnythingLLM: {ex.GetType().Name}: {ex.Message}");
+                return ("Err", ex.Message, "");
+            }
+        }
+
+        private async Task<string?> ResolveAnythingWorkspaceSlugAsync(HttpClient client, string baseUrl)
+        {
+            string url = $"{baseUrl}/api/v1/workspaces";
+            WriteEvalLog("===== AnythingLLM WORKSPACES =====");
+            WriteEvalLog($"GET {url}");
+
+            try
+            {
+                var response = await client.GetAsync(url);
+                string raw = await response.Content.ReadAsStringAsync();
+                WriteEvalLog($"Status: {(int)response.StatusCode} {response.ReasonPhrase}");
+                WriteEvalLog($"Body: {raw}");
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    WriteEvalLog($"ERROR: Không lấy được danh sách workspace. HTTP {(int)response.StatusCode}.");
+                    return null;
+                }
+
+                using var doc = JsonDocument.Parse(raw);
+                if (!doc.RootElement.TryGetProperty("workspaces", out var workspaces) || workspaces.ValueKind != JsonValueKind.Array)
+                {
+                    WriteEvalLog("ERROR: Response /workspaces không có mảng 'workspaces'.");
+                    return null;
+                }
+
+                string? firstSlug = null;
+                foreach (var workspace in workspaces.EnumerateArray())
+                {
+                    string slug = workspace.TryGetProperty("slug", out var slugProp) ? slugProp.GetString() ?? "" : "";
+                    string name = workspace.TryGetProperty("name", out var nameProp) ? nameProp.GetString() ?? "" : "";
+                    if (string.IsNullOrWhiteSpace(slug)) continue;
+
+                    WriteEvalLog($"Workspace found: name='{name}', slug='{slug}'");
+                    firstSlug ??= slug;
+
+                    if (string.Equals(slug, "default", StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(name, "default", StringComparison.OrdinalIgnoreCase))
+                    {
+                        WriteEvalLog($"Using workspace slug: {slug}");
+                        return slug;
+                    }
+                }
+
+                if (!string.IsNullOrWhiteSpace(firstSlug))
+                {
+                    WriteEvalLog($"Không thấy workspace tên default, dùng workspace đầu tiên: {firstSlug}");
+                    return firstSlug;
+                }
+
+                WriteEvalLog("ERROR: Danh sách workspace rỗng hoặc không có slug.");
+                return null;
+            }
+            catch (Exception ex)
+            {
+                WriteEvalLog($"ERROR: Lỗi khi gọi /api/v1/workspaces: {ex.GetType().Name}: {ex.Message}");
+                return null;
+            }
+        }
+
+        private async void dgvEval_CellContentClick(object? sender, DataGridViewCellEventArgs e)
+        {
+            if (e.RowIndex < 0) return;
+
+            string colName = dgvEval.Columns[e.ColumnIndex].Name;
+            var row = dgvEval.Rows[e.RowIndex];
+
+            if (colName == "btnAcceptEval")
+            {
+                string suggested  = row.Cells["SuggestedTrans"].Value?.ToString() ?? "";
+                string vietnamese = row.Cells["Vietnamese"].Value?.ToString() ?? "";
+                string toSave     = string.IsNullOrWhiteSpace(suggested) ? vietnamese : suggested;
+
+                string context = row.Cells["Context"].Value?.ToString() ?? "";
+                string english = row.Cells["English"].Value?.ToString() ?? "";
+
+                if (!string.IsNullOrEmpty(_evalFilePath) && System.IO.File.Exists(_evalFilePath))
+                {
+                    bool savedSuccessfully = false;
+                    try
+                    {
+                        await _saveSemaphore.WaitAsync();
+                        await Task.Run(() =>
+                        {
+                            var map = new Dictionary<string, string>
+                            {
+                                { context + "|" + english, toSave }
+                            };
+                            savedSuccessfully = UpdatePoFileWithMap(_evalFilePath, map);
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        WriteEvalLog($"❌ Lỗi nghiêm trọng khi lưu: {ex.Message}");
+                        return;
+                    }
+                    finally
+                    {
+                        _saveSemaphore.Release();
+                    }
+
+                    if (!savedSuccessfully)
+                    {
+                        WriteEvalLog($"❌ LỖI: Không tìm thấy dòng khớp trong file PO để lưu! (Context: '{context}', English: '{english}')");
+                        return;
+                    }
+
+                    row.Cells["Vietnamese"].Value = toSave;
+                    row.DefaultCellStyle.BackColor = System.Drawing.Color.PaleGreen;
+                    
+                    if (_allEvalEntries != null)
+                    {
+                        var entry = _allEvalEntries.FirstOrDefault(e => e.Context == context && e.Id == english);
+                        if (entry != null)
+                        {
+                            entry.CurrentStr = toSave;
+                        }
+                    }
+
+                    WriteEvalLog($"✔ Chấp nhận: \"{english}\" → \"{toSave}\"");
+                }
+            }
+            else if (colName == "btnRejectEval")
+            {
+                row.DefaultCellStyle.BackColor = System.Drawing.Color.LightGray;
+                WriteEvalLog($"✘ Bỏ qua: \"{row.Cells["English"].Value}\"");
+            }
+        }
+
+        private void WriteEvalLog(string message)
+        {
+            if (rtbLogEval.InvokeRequired)
+            {
+                rtbLogEval.Invoke(new Action<string>(WriteEvalLog), message);
+                return;
+            }
+
+            string time = DateTime.Now.ToString("HH:mm:ss");
+            rtbLogEval.AppendText($"[{time}] {message}{Environment.NewLine}");
+            rtbLogEval.SelectionStart = rtbLogEval.Text.Length;
+            rtbLogEval.ScrollToCaret();
+
+            System.Diagnostics.Debug.WriteLine($"[EVAL LOG][{time}] {message}");
         }
     }
 }

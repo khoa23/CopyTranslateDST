@@ -1,14 +1,14 @@
 {
   "version": 2,
-  "dgSpecHash": "4Yafszohm5E=",
+  "dgSpecHash": "1XwbvYPa55A=",
   "success": true,
   "projectFilePath": "D:\\Code\\CopyTranslateDST\\CopyTranslateDST\\CopyTranslateDST.csproj",
   "expectedPackageFiles": [
-    "C:\\Users\\hodan\\.nuget\\packages\\microsoft.net.illink.tasks\\8.0.23\\microsoft.net.illink.tasks.8.0.23.nupkg.sha512",
-    "C:\\Users\\hodan\\.nuget\\packages\\microsoft.netcore.app.runtime.win-x64\\8.0.23\\microsoft.netcore.app.runtime.win-x64.8.0.23.nupkg.sha512",
-    "C:\\Users\\hodan\\.nuget\\packages\\microsoft.windowsdesktop.app.runtime.win-x64\\8.0.23\\microsoft.windowsdesktop.app.runtime.win-x64.8.0.23.nupkg.sha512",
-    "C:\\Users\\hodan\\.nuget\\packages\\microsoft.aspnetcore.app.runtime.win-x64\\8.0.23\\microsoft.aspnetcore.app.runtime.win-x64.8.0.23.nupkg.sha512",
-    "C:\\Users\\hodan\\.nuget\\packages\\microsoft.netcore.app.crossgen2.win-x64\\8.0.23\\microsoft.netcore.app.crossgen2.win-x64.8.0.23.nupkg.sha512"
+    "C:\\Users\\hodan\\.nuget\\packages\\microsoft.net.illink.tasks\\9.0.12\\microsoft.net.illink.tasks.9.0.12.nupkg.sha512",
+    "C:\\Users\\hodan\\.nuget\\packages\\microsoft.netcore.app.runtime.win-x64\\9.0.12\\microsoft.netcore.app.runtime.win-x64.9.0.12.nupkg.sha512",
+    "C:\\Users\\hodan\\.nuget\\packages\\microsoft.windowsdesktop.app.runtime.win-x64\\9.0.12\\microsoft.windowsdesktop.app.runtime.win-x64.9.0.12.nupkg.sha512",
+    "C:\\Users\\hodan\\.nuget\\packages\\microsoft.aspnetcore.app.runtime.win-x64\\9.0.12\\microsoft.aspnetcore.app.runtime.win-x64.9.0.12.nupkg.sha512",
+    "C:\\Users\\hodan\\.nuget\\packages\\microsoft.windows.sdk.net.ref\\10.0.17763.57\\microsoft.windows.sdk.net.ref.10.0.17763.57.nupkg.sha512"
   ],
   "logs": []
 }

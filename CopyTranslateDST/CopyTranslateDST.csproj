@@ -10,6 +10,15 @@
 
   <ItemGroup>
     <Folder Include="Properties\PublishProfiles\" />
+	<EmbeddedResource Update="Form1.resx">
+    <LogicalName>CopyTranslateDST.Form1.resources</LogicalName>
+  </EmbeddedResource>
+
+  <EmbeddedResource Update="Form1.Gemini.resx">
+    <ManifestResourceName>CopyTranslateDST.Form1.Gemini</ManifestResourceName>
+  </EmbeddedResource>
   </ItemGroup>
 
+
 </Project>
+

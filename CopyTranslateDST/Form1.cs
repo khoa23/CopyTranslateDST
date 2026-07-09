@@ -29,6 +29,56 @@ namespace CopyTranslateDST
         {
             InitializeComponent();
             SetupDgvEval();
+            InitializeGeminiTab();
+            LoadAndSaveApiKeys();
+        }
+
+        private void LoadAndSaveApiKeys()
+        {
+            try
+            {
+                // Load & auto-save Anything API Key (Đánh giá & Dịch lại tab)
+                string anythingApiKeyPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "anything_api_key.txt");
+                if (File.Exists(anythingApiKeyPath))
+                {
+                    txtAnythingApiKey.Text = File.ReadAllText(anythingApiKeyPath, Encoding.UTF8).Trim();
+                }
+
+                txtAnythingApiKey.TextChanged += (sender, e) =>
+                {
+                    try
+                    {
+                        File.WriteAllText(anythingApiKeyPath, txtAnythingApiKey.Text.Trim(), Encoding.UTF8);
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine("Error saving Anything API Key: " + ex.Message);
+                    }
+                };
+
+                // Load & auto-save Gemini API Key (Đánh giá & Dịch (Gemini) tab)
+                string geminiApiKeyPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "gemini_api_key.txt");
+                if (File.Exists(geminiApiKeyPath))
+                {
+                    txtGeminiApiKey.Text = File.ReadAllText(geminiApiKeyPath, Encoding.UTF8).Trim();
+                }
+
+                txtGeminiApiKey.TextChanged += (sender, e) =>
+                {
+                    try
+                    {
+                        File.WriteAllText(geminiApiKeyPath, txtGeminiApiKey.Text.Trim(), Encoding.UTF8);
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine("Error saving Gemini API Key: " + ex.Message);
+                    }
+                };
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Lỗi khởi tạo API Key: " + ex.Message, "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
 
         private void btnOldTrans_Click(object sender, EventArgs e)
@@ -1028,31 +1078,15 @@ namespace CopyTranslateDST
         {
             if (string.IsNullOrEmpty(context)) return "Khác";
 
-            ReadOnlySpan<char> span = context.AsSpan();
-            int dotCount = 0;
-            int prefixEndIndex = -1;
+            // Remove starting/ending quotes if present
+            string cleanContext = context.Trim('"');
 
-            for (int i = 0; i < span.Length; i++)
+            string[] parts = cleanContext.Split('.');
+            if (parts.Length >= 2)
             {
-                if (span[i] == '.')
-                {
-                    dotCount++;
-                    if (dotCount == 5)
-                    {
-                        prefixEndIndex = i;
-                        break;
-                    }
-                }
+                return parts[0] + "." + parts[1];
             }
-
-            if (dotCount == 0) return context;
-            
-            if (prefixEndIndex == -1)
-            {
-                prefixEndIndex = context.LastIndexOf('.');
-            }
-
-            return span.Slice(0, prefixEndIndex + 1).ToString();
+            return cleanContext;
         }
 
         private void SetupDgvEval()
@@ -1092,6 +1126,14 @@ namespace CopyTranslateDST
             dgvEval.Columns["btnRejectEval"].Width = 70;
 
             dgvEval.CellContentClick += dgvEval_CellContentClick;
+            dgvEval.CellEndEdit += dgvEval_CellEndEdit;
+
+            // Make other columns read-only so the user can only edit the Vietnamese translation column
+            dgvEval.Columns["Context"].ReadOnly = true;
+            dgvEval.Columns["English"].ReadOnly = true;
+            dgvEval.Columns["SuggestedTrans"].ReadOnly = true;
+            dgvEval.Columns["EvalScore"].ReadOnly = true;
+            dgvEval.Columns["EvalComment"].ReadOnly = true;
 
             // Add dynamic filter ComboBox
             if (cbContextFilter == null)
@@ -1277,12 +1319,13 @@ namespace CopyTranslateDST
                     if (row.IsNewRow) continue;
                     if (processed >= limit) break;
 
+                    string context = row.Cells["Context"].Value?.ToString() ?? "";
                     string original = row.Cells["English"].Value?.ToString() ?? "";
                     string currentTrans = row.Cells["Vietnamese"].Value?.ToString() ?? "";
                     if (string.IsNullOrWhiteSpace(original)) continue;
 
                     row.Cells["EvalScore"].Value = "...";
-                    var result = await EvaluateTranslationAsync(apiUrl, apiKey, original, currentTrans);
+                    var result = await EvaluateTranslationAsync(apiUrl, apiKey, context, original, currentTrans);
                     row.Cells["EvalScore"].Value = result.Score;
                     row.Cells["EvalComment"].Value = result.Comment;
                     row.Cells["SuggestedTrans"].Value = result.Suggested;
@@ -1304,7 +1347,7 @@ namespace CopyTranslateDST
             }
         }
 
-        private async Task<(string Score, string Comment, string Suggested)> EvaluateTranslationAsync(string apiUrl, string apiKey, string original, string currentTrans)
+        private async Task<(string Score, string Comment, string Suggested)> EvaluateTranslationAsync(string apiUrl, string apiKey, string context, string original, string currentTrans)
         {
             try
             {
@@ -1332,14 +1375,17 @@ namespace CopyTranslateDST
 
                 string prompt =
                     $"Bạn là chuyên gia dịch thuật game Don't Starve sang tiếng Việt.\n" +
-                    $"Văn bản gốc (tiếng Anh): \"{original}\"\n" +
-                    $"Bản dịch hiện tại (tiếng Việt): \"{currentTrans}\"\n" +
+                    $"Dưới đây là thông tin đoạn dịch từ file PO để cung cấp ngữ cảnh đầy đủ (bao gồm tên nhân vật, mô tả, hành động nằm trong msgctxt):\n\n" +
+                    $"#. {context}\n" +
+                    $"msgctxt \"{context}\"\n" +
+                    $"msgid \"{original}\"\n" +
+                    $"msgstr \"{currentTrans}\"\n\n" +
+                    $"Hãy thực hiện các yêu cầu sau:\n" +
+                    $"1. Cho điểm chất lượng bản dịch hiện tại (msgstr) dựa trên ngữ cảnh được cung cấp từ 1-10 (chỉ số nguyên).\n" +
+                    $"2. Nhận xét ngắn gọn về bản dịch hiện tại (1-2 câu).\n" +
+                    $"3. Đề xuất bản dịch tốt hơn cho phần msgid này nếu điểm < 8 (chú ý giữ đúng giọng điệu và ngữ cảnh nhân vật trong game), nếu không cần thì để trống.\n" +
                     noTranslateInstructions +
-                    $"\nHãy:\n" +
-                    $"1. Cho điểm chất lượng bản dịch từ 1-10 (chỉ số nguyên).\n" +
-                    $"2. Nhận xét ngắn gọn (1-2 câu).\n" +
-                    $"3. Đề xuất bản dịch tốt hơn nếu điểm < 8, nếu không cần thì để trống.\n\n" +
-                    $"Trả lời ĐÚNG định dạng JSON sau, không thêm gì khác:\n" +
+                    $"\nTrả lời ĐÚNG định dạng JSON sau, không thêm bất kỳ giải thích nào khác ngoài JSON:\n" +
                     $"{{\"score\":8,\"comment\":\"Nhận xét\",\"suggested\":\"Bản dịch đề xuất\"}}";
 
                 var payload = new
@@ -1599,6 +1645,65 @@ namespace CopyTranslateDST
             {
                 row.DefaultCellStyle.BackColor = System.Drawing.Color.LightGray;
                 WriteEvalLog($"✘ Bỏ qua: \"{row.Cells["English"].Value}\"");
+            }
+        }
+
+        private async void dgvEval_CellEndEdit(object? sender, DataGridViewCellEventArgs e)
+        {
+            if (e.RowIndex < 0) return;
+
+            string colName = dgvEval.Columns[e.ColumnIndex].Name;
+            if (colName == "Vietnamese")
+            {
+                var row = dgvEval.Rows[e.RowIndex];
+                string context = row.Cells["Context"].Value?.ToString() ?? "";
+                string english = row.Cells["English"].Value?.ToString() ?? "";
+                string newValue = row.Cells["Vietnamese"].Value?.ToString() ?? "";
+
+                if (!string.IsNullOrEmpty(_evalFilePath) && System.IO.File.Exists(_evalFilePath))
+                {
+                    bool savedSuccessfully = false;
+                    try
+                    {
+                        await _saveSemaphore.WaitAsync();
+                        await Task.Run(() =>
+                        {
+                            var map = new Dictionary<string, string>
+                            {
+                                { context + "|" + english, newValue }
+                            };
+                            savedSuccessfully = UpdatePoFileWithMap(_evalFilePath, map);
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        WriteEvalLog($"❌ Lỗi nghiêm trọng khi lưu chỉnh sửa thủ công: {ex.Message}");
+                        return;
+                    }
+                    finally
+                    {
+                        _saveSemaphore.Release();
+                    }
+
+                    if (!savedSuccessfully)
+                    {
+                        WriteEvalLog($"❌ LỖI: Không tìm thấy dòng khớp trong file PO để lưu! (Context: '{context}', English: '{english}')");
+                        return;
+                    }
+
+                    row.DefaultCellStyle.BackColor = System.Drawing.Color.PaleGreen;
+
+                    if (_allEvalEntries != null)
+                    {
+                        var entry = _allEvalEntries.FirstOrDefault(ent => ent.Context == context && ent.Id == english);
+                        if (entry != null)
+                        {
+                            entry.CurrentStr = newValue;
+                        }
+                    }
+
+                    WriteEvalLog($"✔ Đã lưu chỉnh sửa thủ công: \"{english}\" → \"{newValue}\"");
+                }
             }
         }
 

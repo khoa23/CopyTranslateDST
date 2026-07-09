@@ -37,37 +37,34 @@ namespace CopyTranslateDST
             tabPageDichTuConTrong = new TabControl();
             tabPage1 = new TabPage();
             tabPage2 = new TabPage();
+            rtbLog = new RichTextBox();
+            lbMaxTrans = new Label();
+            numMaxTrans = new NumericUpDown();
+            btnLuuBanDich = new Button();
+            btnGoogleTranslate = new Button();
             btnCutTranslate = new Button();
             rtbBanDichTrong = new RichTextBox();
             btnMoBanDich = new Button();
             lbDuongDanBanDich = new Label();
-            btnGoogleTranslate = new Button();
-            btnLuuBanDich = new Button();
-            numMaxTrans = new NumericUpDown();
-            lbMaxTrans = new Label();
-            tabPage3 = new TabPage();
-            btnChonFilePoDichTuConTrong = new Button();
-            lbDuongDanFilePoDichTuConTrong = new Label();
-            rtbLog = new RichTextBox();
             tabPageEval = new TabPage();
-            rtbLogEval = new RichTextBox();
-            dgvEval = new DataGridView();
-            lbLimitEval = new Label();
-            numLimitEval = new NumericUpDown();
-            lbAnythingApiKey = new Label();
-            txtAnythingApiKey = new TextBox();
-            lbAnythingIp = new Label();
-            txtAnythingIp = new TextBox();
-            lbDuongDanBanDichEval = new Label();
-            btnMoBanDichEval = new Button();
             btnEval = new Button();
+            btnMoBanDichEval = new Button();
+            lbDuongDanBanDichEval = new Label();
+            txtAnythingIp = new TextBox();
+            lbAnythingIp = new Label();
+            txtAnythingApiKey = new TextBox();
+            rtbLogEval = new RichTextBox();
+            lbAnythingApiKey = new Label();
+            numLimitEval = new NumericUpDown();
+            lbLimitEval = new Label();
+            dgvEval = new DataGridView();
             tabPageDichTuConTrong.SuspendLayout();
             tabPage1.SuspendLayout();
             tabPage2.SuspendLayout();
-            tabPage3.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)numMaxTrans).BeginInit();
             tabPageEval.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)dgvEval).BeginInit();
             ((System.ComponentModel.ISupportInitialize)numLimitEval).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)dgvEval).BeginInit();
             SuspendLayout();
             // 
             // btnOldTrans
@@ -125,7 +122,6 @@ namespace CopyTranslateDST
             tabPageDichTuConTrong.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             tabPageDichTuConTrong.Controls.Add(tabPage1);
             tabPageDichTuConTrong.Controls.Add(tabPage2);
-            tabPageDichTuConTrong.Controls.Add(tabPage3);
             tabPageDichTuConTrong.Controls.Add(tabPageEval);
             tabPageDichTuConTrong.Location = new Point(12, 12);
             tabPageDichTuConTrong.Margin = new Padding(3, 2, 3, 2);
@@ -145,7 +141,7 @@ namespace CopyTranslateDST
             tabPage1.Margin = new Padding(3, 2, 3, 2);
             tabPage1.Name = "tabPage1";
             tabPage1.Padding = new Padding(3, 2, 3, 2);
-            tabPage1.Size = new Size(1008, 352);
+            tabPage1.Size = new Size(1152, 552);
             tabPage1.TabIndex = 0;
             tabPage1.Text = "Copy Translate";
             tabPage1.UseVisualStyleBackColor = true;
@@ -182,6 +178,15 @@ namespace CopyTranslateDST
             rtbLog.TabIndex = 10;
             rtbLog.Text = "";
             // 
+            // lbMaxTrans
+            // 
+            lbMaxTrans.AutoSize = true;
+            lbMaxTrans.Location = new Point(540, 55);
+            lbMaxTrans.Name = "lbMaxTrans";
+            lbMaxTrans.Size = new Size(78, 15);
+            lbMaxTrans.TabIndex = 9;
+            lbMaxTrans.Text = "Số câu tối đa:";
+            // 
             // numMaxTrans
             // 
             numMaxTrans.Location = new Point(620, 52);
@@ -190,15 +195,6 @@ namespace CopyTranslateDST
             numMaxTrans.Size = new Size(80, 23);
             numMaxTrans.TabIndex = 8;
             numMaxTrans.Value = new decimal(new int[] { 1000, 0, 0, 0 });
-            // 
-            // lbMaxTrans
-            // 
-            lbMaxTrans.AutoSize = true;
-            lbMaxTrans.Location = new Point(540, 55);
-            lbMaxTrans.Name = "lbMaxTrans";
-            lbMaxTrans.Size = new Size(74, 15);
-            lbMaxTrans.TabIndex = 9;
-            lbMaxTrans.Text = "Số câu tối đa:";
             // 
             // btnLuuBanDich
             // 
@@ -263,37 +259,6 @@ namespace CopyTranslateDST
             lbDuongDanBanDich.TabIndex = 3;
             lbDuongDanBanDich.Text = "Đường dẫn bản dịch";
             // 
-            // tabPage3
-            // 
-            tabPage3.Controls.Add(lbDuongDanFilePoDichTuConTrong);
-            tabPage3.Controls.Add(btnChonFilePoDichTuConTrong);
-            tabPage3.Location = new Point(4, 24);
-            tabPage3.Name = "tabPage3";
-            tabPage3.Padding = new Padding(3);
-            tabPage3.Size = new Size(1152, 552);
-            tabPage3.TabIndex = 2;
-            tabPage3.Text = "Dịch các từ còn trống";
-            tabPage3.UseVisualStyleBackColor = true;
-            // 
-            // btnChonFilePoDichTuConTrong
-            // 
-            btnChonFilePoDichTuConTrong.Location = new Point(44, 34);
-            btnChonFilePoDichTuConTrong.Margin = new Padding(3, 2, 3, 2);
-            btnChonFilePoDichTuConTrong.Name = "btnChonFilePoDichTuConTrong";
-            btnChonFilePoDichTuConTrong.Size = new Size(216, 22);
-            btnChonFilePoDichTuConTrong.TabIndex = 3;
-            btnChonFilePoDichTuConTrong.Text = "Mở bản dịch";
-            btnChonFilePoDichTuConTrong.UseVisualStyleBackColor = true;
-            // 
-            // lbDuongDanFilePoDichTuConTrong
-            // 
-            lbDuongDanFilePoDichTuConTrong.AutoSize = true;
-            lbDuongDanFilePoDichTuConTrong.Location = new Point(319, 38);
-            lbDuongDanFilePoDichTuConTrong.Name = "lbDuongDanFilePoDichTuConTrong";
-            lbDuongDanFilePoDichTuConTrong.Size = new Size(115, 15);
-            lbDuongDanFilePoDichTuConTrong.TabIndex = 4;
-            lbDuongDanFilePoDichTuConTrong.Text = "Đường dẫn bản dịch";
-            // 
             // tabPageEval
             // 
             tabPageEval.Controls.Add(btnEval);
@@ -315,89 +280,17 @@ namespace CopyTranslateDST
             tabPageEval.Text = "Đánh giá & Dịch lại";
             tabPageEval.UseVisualStyleBackColor = true;
             // 
-            // rtbLogEval
+            // btnEval
             // 
-            rtbLogEval.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Right;
-            rtbLogEval.BackColor = Color.Black;
-            rtbLogEval.ForeColor = Color.Lime;
-            rtbLogEval.Location = new Point(781, 85);
-            rtbLogEval.Name = "rtbLogEval";
-            rtbLogEval.ReadOnly = true;
-            rtbLogEval.Size = new Size(355, 449);
-            rtbLogEval.TabIndex = 8;
-            rtbLogEval.Text = "";
-            // 
-            // dgvEval
-            // 
-            dgvEval.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
-            dgvEval.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
-            dgvEval.Location = new Point(18, 85);
-            dgvEval.Name = "dgvEval";
-            dgvEval.Size = new Size(745, 449);
-            dgvEval.TabIndex = 7;
-            // 
-            // lbAnythingIp
-            // 
-            lbAnythingIp.AutoSize = true;
-            lbAnythingIp.Location = new Point(18, 55);
-            lbAnythingIp.Name = "lbAnythingIp";
-            lbAnythingIp.Size = new Size(71, 15);
-            lbAnythingIp.TabIndex = 12;
-            lbAnythingIp.Text = "Anything IP";
-            // 
-            // txtAnythingIp
-            // 
-            txtAnythingIp.Location = new Point(95, 52);
-            txtAnythingIp.Name = "txtAnythingIp";
-            txtAnythingIp.Size = new Size(180, 23);
-            txtAnythingIp.TabIndex = 13;
-            txtAnythingIp.Text = "http://localhost:3001";
-            // 
-            // lbAnythingApiKey
-            // 
-            lbAnythingApiKey.AutoSize = true;
-            lbAnythingApiKey.Location = new Point(290, 55);
-            lbAnythingApiKey.Name = "lbAnythingApiKey";
-            lbAnythingApiKey.Size = new Size(99, 15);
-            lbAnythingApiKey.TabIndex = 4;
-            lbAnythingApiKey.Text = "Anything API Key";
-            // 
-            // txtAnythingApiKey
-            // 
-            txtAnythingApiKey.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
-            txtAnythingApiKey.Location = new Point(395, 52);
-            txtAnythingApiKey.Name = "txtAnythingApiKey";
-            txtAnythingApiKey.Size = new Size(205, 23);
-            txtAnythingApiKey.TabIndex = 3;
-            // 
-            // lbLimitEval
-            // 
-            lbLimitEval.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            lbLimitEval.AutoSize = true;
-            lbLimitEval.Location = new Point(620, 55);
-            lbLimitEval.Name = "lbLimitEval";
-            lbLimitEval.Size = new Size(65, 15);
-            lbLimitEval.TabIndex = 6;
-            lbLimitEval.Text = "Limit rows:";
-            // 
-            // numLimitEval
-            // 
-            numLimitEval.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            numLimitEval.Location = new Point(690, 52);
-            numLimitEval.Maximum = new decimal(new int[] { 10000, 0, 0, 0 });
-            numLimitEval.Name = "numLimitEval";
-            numLimitEval.Size = new Size(60, 23);
-            numLimitEval.TabIndex = 5;
-            numLimitEval.Value = new decimal(new int[] { 100, 0, 0, 0 });
-            // 
-            // lbDuongDanBanDichEval
-            // 
-            lbDuongDanBanDichEval.AutoSize = true;
-            lbDuongDanBanDichEval.Location = new Point(268, 22);
-            lbDuongDanBanDichEval.Name = "lbDuongDanBanDichEval";
-            lbDuongDanBanDichEval.Size = new Size(85, 15);
-            lbDuongDanBanDichEval.TabIndex = 11;
-            lbDuongDanBanDichEval.Text = "Đường dẫn file";
+            btnEval.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnEval.Location = new Point(781, 18);
+            btnEval.Margin = new Padding(3, 2, 3, 2);
+            btnEval.Name = "btnEval";
+            btnEval.Size = new Size(196, 22);
+            btnEval.TabIndex = 0;
+            btnEval.Text = "Đánh giá & Dịch";
+            btnEval.UseVisualStyleBackColor = true;
+            btnEval.Click += btnEval_Click;
             // 
             // btnMoBanDichEval
             // 
@@ -410,17 +303,89 @@ namespace CopyTranslateDST
             btnMoBanDichEval.UseVisualStyleBackColor = true;
             btnMoBanDichEval.Click += btnMoBanDichEval_Click;
             // 
-            // btnEval
+            // lbDuongDanBanDichEval
             // 
-            btnEval.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-            btnEval.Location = new Point(781, 18);
-            btnEval.Margin = new Padding(3, 2, 3, 2);
-            btnEval.Name = "btnEval";
-            btnEval.Size = new Size(196, 22);
-            btnEval.TabIndex = 0;
-            btnEval.Text = "Đánh giá & Dịch";
-            btnEval.UseVisualStyleBackColor = true;
-            btnEval.Click += btnEval_Click;
+            lbDuongDanBanDichEval.AutoSize = true;
+            lbDuongDanBanDichEval.Location = new Point(268, 22);
+            lbDuongDanBanDichEval.Name = "lbDuongDanBanDichEval";
+            lbDuongDanBanDichEval.Size = new Size(85, 15);
+            lbDuongDanBanDichEval.TabIndex = 11;
+            lbDuongDanBanDichEval.Text = "Đường dẫn file";
+            // 
+            // txtAnythingIp
+            // 
+            txtAnythingIp.Location = new Point(95, 52);
+            txtAnythingIp.Name = "txtAnythingIp";
+            txtAnythingIp.Size = new Size(180, 23);
+            txtAnythingIp.TabIndex = 13;
+            txtAnythingIp.Text = "http://localhost:3001";
+            // 
+            // lbAnythingIp
+            // 
+            lbAnythingIp.AutoSize = true;
+            lbAnythingIp.Location = new Point(18, 55);
+            lbAnythingIp.Name = "lbAnythingIp";
+            lbAnythingIp.Size = new Size(69, 15);
+            lbAnythingIp.TabIndex = 12;
+            lbAnythingIp.Text = "Anything IP";
+            // 
+            // txtAnythingApiKey
+            // 
+            txtAnythingApiKey.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            txtAnythingApiKey.Location = new Point(395, 52);
+            txtAnythingApiKey.Name = "txtAnythingApiKey";
+            txtAnythingApiKey.Size = new Size(205, 23);
+            txtAnythingApiKey.TabIndex = 3;
+            // 
+            // rtbLogEval
+            // 
+            rtbLogEval.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Right;
+            rtbLogEval.BackColor = Color.Black;
+            rtbLogEval.ForeColor = Color.Lime;
+            rtbLogEval.Location = new Point(781, 85);
+            rtbLogEval.Name = "rtbLogEval";
+            rtbLogEval.ReadOnly = true;
+            rtbLogEval.Size = new Size(355, 449);
+            rtbLogEval.TabIndex = 8;
+            rtbLogEval.Text = "";
+            // 
+            // lbAnythingApiKey
+            // 
+            lbAnythingApiKey.AutoSize = true;
+            lbAnythingApiKey.Location = new Point(290, 55);
+            lbAnythingApiKey.Name = "lbAnythingApiKey";
+            lbAnythingApiKey.Size = new Size(99, 15);
+            lbAnythingApiKey.TabIndex = 4;
+            lbAnythingApiKey.Text = "Anything API Key";
+            // 
+            // numLimitEval
+            // 
+            numLimitEval.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            numLimitEval.Location = new Point(690, 52);
+            numLimitEval.Maximum = new decimal(new int[] { 10000, 0, 0, 0 });
+            numLimitEval.Name = "numLimitEval";
+            numLimitEval.Size = new Size(60, 23);
+            numLimitEval.TabIndex = 5;
+            numLimitEval.Value = new decimal(new int[] { 100, 0, 0, 0 });
+            // 
+            // lbLimitEval
+            // 
+            lbLimitEval.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            lbLimitEval.AutoSize = true;
+            lbLimitEval.Location = new Point(620, 55);
+            lbLimitEval.Name = "lbLimitEval";
+            lbLimitEval.Size = new Size(65, 15);
+            lbLimitEval.TabIndex = 6;
+            lbLimitEval.Text = "Limit rows:";
+            // 
+            // dgvEval
+            // 
+            dgvEval.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
+            dgvEval.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.AutoSize;
+            dgvEval.Location = new Point(18, 85);
+            dgvEval.Name = "dgvEval";
+            dgvEval.Size = new Size(745, 449);
+            dgvEval.TabIndex = 7;
             // 
             // Form1
             // 
@@ -438,12 +403,11 @@ namespace CopyTranslateDST
             tabPage1.PerformLayout();
             tabPage2.ResumeLayout(false);
             tabPage2.PerformLayout();
-            tabPage3.ResumeLayout(false);
-            tabPage3.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)numMaxTrans).EndInit();
             tabPageEval.ResumeLayout(false);
             tabPageEval.PerformLayout();
-            ((System.ComponentModel.ISupportInitialize)dgvEval).EndInit();
             ((System.ComponentModel.ISupportInitialize)numLimitEval).EndInit();
+            ((System.ComponentModel.ISupportInitialize)dgvEval).EndInit();
             ResumeLayout(false);
         }
 
@@ -461,9 +425,6 @@ namespace CopyTranslateDST
         private Label lbDuongDanBanDich;
         private RichTextBox rtbBanDichTrong;
         private Button btnCutTranslate;
-        private TabPage tabPage3;
-        private Label lbDuongDanFilePoDichTuConTrong;
-        private Button btnChonFilePoDichTuConTrong;
         private Button btnGoogleTranslate;
         private Button btnLuuBanDich;
         private NumericUpDown numMaxTrans;

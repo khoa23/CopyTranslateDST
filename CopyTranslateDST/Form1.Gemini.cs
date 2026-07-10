@@ -467,22 +467,12 @@ namespace CopyTranslateDST
 
                     WriteGeminiLog($"textResponse: {textResponse}");
 
-                    // Try to extract JSON from response
-                    int start = textResponse.IndexOf('{');
-                    int end = textResponse.LastIndexOf('}');
-                    if (start >= 0 && end > start)
+                    var parsed = ParseEvaluationResponse(textResponse);
+                    if (parsed.Score == "?" && string.IsNullOrEmpty(parsed.Comment) && string.IsNullOrEmpty(parsed.Suggested))
                     {
-                        string jsonPart = textResponse.Substring(start, end - start + 1);
-
-                        using var inner = JsonDocument.Parse(jsonPart);
-                        string score = inner.RootElement.TryGetProperty("score", out var s) ? s.ToString() : "?";
-                        string comment = inner.RootElement.TryGetProperty("comment", out var c) ? c.GetString() ?? "" : "";
-                        string suggested = inner.RootElement.TryGetProperty("suggested", out var sg) ? sg.GetString() ?? "" : "";
-                        WriteGeminiLog($"Parsed => score={score}, suggested={suggested}");
-                        return (true, score, comment, suggested, "");
+                        return (false, "", "", "", "Không tìm thấy JSON hợp lệ trong response. Raw: " + textResponse);
                     }
-
-                    return (false, "", "", "", "Không tìm thấy JSON hợp lệ trong response");
+                    return (true, parsed.Score, parsed.Comment, parsed.Suggested, "");
                 }
                 catch (Exception ex)
                 {

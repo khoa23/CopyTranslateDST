@@ -1033,11 +1033,16 @@ namespace CopyTranslateDST
         // ============================================================
 
         private string _evalFilePath = "";
+        private CancellationTokenSource? _evalCts;
         private ComboBox? cbContextFilter;
         private Label? lbContextFilter;
         private Label? lbNoTranslate;
         private TextBox? txtNoTranslate;
         private List<PoEntry>? _allEvalEntries;
+        private Button? btnExportEval;
+        private Button? btnLoadCsv;
+        private string _evalCsvPath = "";
+        private DateTime _lastEvalDateTime = DateTime.MinValue;
 
         private void LoadNoTranslateWords()
         {
@@ -1177,6 +1182,25 @@ namespace CopyTranslateDST
                 LoadNoTranslateWords();
                 txtNoTranslate.TextChanged += TxtNoTranslate_TextChanged;
                 tabPageEval.Controls.Add(txtNoTranslate);
+
+                // Nút Xuất CSV — đặt phía trên bên phải DataGridView (cùng hàng với toolbar)
+                btnExportEval = new Button();
+                btnExportEval.Text = "Xuất CSV";
+                btnExportEval.AutoSize = true;
+                btnExportEval.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+                btnExportEval.Location = new Point(rtbLogEval.Left, dgvEval.Top - 28);
+                btnExportEval.Size = new Size(100, 23);
+                btnExportEval.Click += BtnExportEval_Click;
+                tabPageEval.Controls.Add(btnExportEval);
+
+                // Nút "Tải CSV kết quả" — load kết quả đánh giá cũ từ file CSV
+                btnLoadCsv = new Button();
+                btnLoadCsv.Text = "Tải CSV kết quả";
+                btnLoadCsv.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+                btnLoadCsv.Location = new Point(rtbLogEval.Left + 105, dgvEval.Top - 28);
+                btnLoadCsv.Size = new Size(130, 23);
+                btnLoadCsv.Click += BtnLoadCsv_Click;
+                tabPageEval.Controls.Add(btnLoadCsv);
             }
         }
 
@@ -1268,11 +1292,30 @@ namespace CopyTranslateDST
                 {
                     cbContextFilter.Items.Add(p);
                 }
-                cbContextFilter.SelectedIndex = 0; // Trigger "Tất cả" explicitly
+                cbContextFilter.SelectedIndex = 0;
                 cbContextFilter.SelectedIndexChanged += CbContextFilter_SelectedIndexChanged;
 
                 PopulateDgvEval(_allEvalEntries);
                 WriteEvalLog($"Đã tải {_allEvalEntries.Count} mục.");
+
+                // Auto-detect file CSV companion (<pofilename>_eval.csv) cùng thư mục
+                string poDir = Path.GetDirectoryName(_evalFilePath) ?? "";
+                string poName = Path.GetFileNameWithoutExtension(_evalFilePath);
+                string companionCsv = Path.Combine(poDir, poName + "_eval.csv");
+                if (File.Exists(companionCsv))
+                {
+                    var dlg = MessageBox.Show(
+                        $"Tìm thấy file kết quả đánh giá cũ:\n{companionCsv}\n\nBạn có muốn tải lại kết quả đã đánh giá không? (Các hàng đã có kết quả sẽ không bị đánh giá lại.)",
+                        "Tải kết quả cũ",
+                        MessageBoxButtons.YesNo,
+                        MessageBoxIcon.Question);
+                    if (dlg == DialogResult.Yes)
+                    {
+                        int loaded = await Task.Run(() => LoadEvalFromCsv(companionCsv));
+                        WriteEvalLog($"✔ Đã tải {loaded} kết quả từ CSV. Các hàng này sẽ được bỏ qua khi chạy đánh giá.");
+                        _evalCsvPath = companionCsv;
+                    }
+                }
             }
             catch (Exception ex)
             {
@@ -1282,6 +1325,16 @@ namespace CopyTranslateDST
             {
                 btnMoBanDichEval.Enabled = true;
                 btnMoBanDichEval.Text = "Mở file Đánh giá";
+            }
+        }
+
+        private void btnCancelEval_Click(object sender, EventArgs e)
+        {
+            if (_evalCts != null)
+            {
+                _evalCts.Cancel();
+                WriteEvalLog("Đang yêu cầu hủy đánh giá...");
+                btnCancelEval.Enabled = false;
             }
         }
 
@@ -1311,30 +1364,83 @@ namespace CopyTranslateDST
             {
                 btnEval.Enabled = false;
                 btnEval.Text = "Đang đánh giá...";
+                btnCancelEval.Enabled = true;
+                _evalCts = new CancellationTokenSource();
+                var token = _evalCts.Token;
+
                 int limit = (int)numLimitEval.Value;
                 int processed = 0;
 
+                int skipped = 0;
                 foreach (DataGridViewRow row in dgvEval.Rows)
                 {
                     if (row.IsNewRow) continue;
                     if (processed >= limit) break;
+
+                    if (token.IsCancellationRequested)
+                    {
+                        break;
+                    }
 
                     string context = row.Cells["Context"].Value?.ToString() ?? "";
                     string original = row.Cells["English"].Value?.ToString() ?? "";
                     string currentTrans = row.Cells["Vietnamese"].Value?.ToString() ?? "";
                     if (string.IsNullOrWhiteSpace(original)) continue;
 
+                    // Skip các hàng đã có kết quả đánh giá hợp lệ (từ CSV load hoặc lần chạy trước)
+                    string existingScore = row.Cells["EvalScore"].Value?.ToString() ?? "";
+                    bool alreadyEvaluated = !string.IsNullOrWhiteSpace(existingScore)
+                        && existingScore != "..."
+                        && existingScore != "Lỗi"
+                        && existingScore != "Đã hủy";
+                    if (alreadyEvaluated)
+                    {
+                        skipped++;
+                        continue;
+                    }
+
                     row.Cells["EvalScore"].Value = "...";
-                    var result = await EvaluateTranslationAsync(apiUrl, apiKey, context, original, currentTrans);
-                    row.Cells["EvalScore"].Value = result.Score;
-                    row.Cells["EvalComment"].Value = result.Comment;
-                    row.Cells["SuggestedTrans"].Value = result.Suggested;
+                    try
+                    {
+                        var result = await EvaluateTranslationAsync(apiUrl, apiKey, context, original, currentTrans, token);
+                        row.Cells["EvalScore"].Value = result.Score;
+                        row.Cells["EvalComment"].Value = result.Comment;
+
+                        // Fallback: nếu đề xuất trống nhưng bản dịch hiện tại có giá trị, lấy bản dịch hiện tại
+                        string finalSuggested = result.Suggested;
+                        if (string.IsNullOrWhiteSpace(finalSuggested) && !string.IsNullOrWhiteSpace(currentTrans))
+                        {
+                            finalSuggested = currentTrans;
+                        }
+                        row.Cells["SuggestedTrans"].Value = finalSuggested;
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        row.Cells["EvalScore"].Value = "Đã hủy";
+                        WriteEvalLog("Đã hủy đánh giá.");
+                        break;
+                    }
+                    catch (Exception ex)
+                    {
+                        row.Cells["EvalScore"].Value = "Lỗi";
+                        WriteEvalLog($"Lỗi khi đánh giá '{original}': {ex.Message}");
+                    }
 
                     processed++;
                     WriteEvalLog($"Đã đánh giá {processed}: {original}");
                 }
+                if (skipped > 0)
+                    WriteEvalLog($"⏩ Đã bỏ qua {skipped} hàng đã có kết quả đánh giá.");
 
-                WriteEvalLog($"Hoàn tất đánh giá {processed} mục.");
+                if (token.IsCancellationRequested)
+                {
+                    WriteEvalLog($"Đã dừng đánh giá. Đã xử lý {processed} mục.");
+                }
+                else
+                {
+                    _lastEvalDateTime = DateTime.Now;
+                    WriteEvalLog($"Hoàn tất đánh giá {processed} mục.");
+                }
             }
             catch (Exception ex)
             {
@@ -1344,10 +1450,13 @@ namespace CopyTranslateDST
             {
                 btnEval.Enabled = true;
                 btnEval.Text = "Đánh giá & Dịch";
+                btnCancelEval.Enabled = false;
+                _evalCts?.Dispose();
+                _evalCts = null;
             }
         }
 
-        private async Task<(string Score, string Comment, string Suggested)> EvaluateTranslationAsync(string apiUrl, string apiKey, string context, string original, string currentTrans)
+        private async Task<(string Score, string Comment, string Suggested)> EvaluateTranslationAsync(string apiUrl, string apiKey, string context, string original, string currentTrans, CancellationToken cancellationToken)
         {
             try
             {
@@ -1381,9 +1490,11 @@ namespace CopyTranslateDST
                     $"msgid \"{original}\"\n" +
                     $"msgstr \"{currentTrans}\"\n\n" +
                     $"Hãy thực hiện các yêu cầu sau:\n" +
-                    $"1. Cho điểm chất lượng bản dịch hiện tại (msgstr) dựa trên ngữ cảnh được cung cấp từ 1-10 (chỉ số nguyên).\n" +
-                    $"2. Nhận xét ngắn gọn về bản dịch hiện tại (1-2 câu).\n" +
-                    $"3. Đề xuất bản dịch tốt hơn cho phần msgid này nếu điểm < 8 (chú ý giữ đúng giọng điệu và ngữ cảnh nhân vật trong game), nếu không cần thì để trống.\n" +
+                    $"1. Cho điểm chất lượng bản dịch hiện tại (msgstr) dựa trên ngữ cảnh được cung cấp từ 1-10 (chỉ số nguyên). Nếu msgstr rỗng (chưa dịch), hãy cho 1 điểm.\n" +
+                    $"2. Nhận xét ngắn gọn về bản dịch hiện tại (1-2 câu). Nếu chưa dịch, nhận xét là 'Chưa dịch'.\n" +
+                    $"3. Đề xuất bản dịch tiếng Việt tốt nhất cho phần msgid này vào ô 'suggested':\n" +
+                    $"   - Nếu bản dịch hiện tại đã tốt (điểm >= 8), hãy điền lại chính bản dịch hiện tại đó vào ô 'suggested' (tuyệt đối không được để trống).\n" +
+                    $"   - Nếu bản dịch hiện tại chưa tốt hoặc đang trống (msgstr \"\"), bắt buộc phải đề xuất bản dịch tiếng Việt mới/tốt nhất vào ô 'suggested' (tuyệt đối không được để trống và tuyệt đối không để nguyên tiếng Anh, trừ khi đó là từ thuộc danh sách giữ nguyên không dịch).\n" +
                     noTranslateInstructions +
                     $"\nTrả lời ĐÚNG định dạng JSON sau, không thêm bất kỳ giải thích nào khác ngoài JSON:\n" +
                     $"{{\"score\":8,\"comment\":\"Nhận xét\",\"suggested\":\"Bản dịch đề xuất\"}}";
@@ -1401,7 +1512,7 @@ namespace CopyTranslateDST
                 client.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiKey}");
                 client.Timeout = TimeSpan.FromSeconds(60);
 
-                string? workspaceSlug = await ResolveAnythingWorkspaceSlugAsync(client, baseUrl);
+                string? workspaceSlug = await ResolveAnythingWorkspaceSlugAsync(client, baseUrl, cancellationToken);
                 if (string.IsNullOrWhiteSpace(workspaceSlug))
                 {
                     WriteEvalLog("ERROR: Không lấy được workspace slug hợp lệ từ AnythingLLM.");
@@ -1416,7 +1527,7 @@ namespace CopyTranslateDST
                 WriteEvalLog($"Authorization: Bearer {maskedApiKey}");
                 WriteEvalLog($"Body: {jsonBody}");
 
-                var response = await client.PostAsync(url, new StringContent(jsonBody, Encoding.UTF8, "application/json"));
+                var response = await client.PostAsync(url, new StringContent(jsonBody, Encoding.UTF8, "application/json"), cancellationToken);
                 string raw = await response.Content.ReadAsStringAsync();
 
                 WriteEvalLog("===== AnythingLLM RESPONSE =====");
@@ -1456,61 +1567,13 @@ namespace CopyTranslateDST
 
                 WriteEvalLog($"textResponse: {textResponse}");
 
-                int start = textResponse.IndexOf('{');
-                int end = textResponse.LastIndexOf('}');
-                if (start >= 0 && end > start)
+                var parsed = ParseEvaluationResponse(textResponse);
+                if (parsed.Score == "?" && string.IsNullOrEmpty(parsed.Comment) && string.IsNullOrEmpty(parsed.Suggested))
                 {
-                    string jsonPart = textResponse.Substring(start, end - start + 1);
-                    WriteEvalLog($"Parsed JSON candidate: {jsonPart}");
-
-                    try
-                    {
-                        // Sửa một số lỗi phổ biến của LLM trước khi parse
-                        string fixedJson = jsonPart.Replace("\"suggested:\":", "\"suggested\":")
-                                                   .Replace("\"suggested:\"", "\",\"suggested\":\"");
-                        using var inner = JsonDocument.Parse(fixedJson);
-                        string score = inner.RootElement.TryGetProperty("score", out var s) ? s.ToString() : "?";
-                        string comment = inner.RootElement.TryGetProperty("comment", out var c) ? c.GetString() ?? "" : "";
-                        string suggested = inner.RootElement.TryGetProperty("suggested", out var sg) ? sg.GetString() ?? "" : "";
-                        WriteEvalLog($"Parsed result => score={score}, suggested={suggested}");
-                        return (score, comment, suggested);
-                    }
-                    catch (JsonException jsonEx)
-                    {
-                        WriteEvalLog($"JSON parse failed: {jsonEx.Message}. Attempting Regex fallback...");
-                        string scoreStr = "?";
-                        string commentStr = "";
-                        string suggestedStr = "";
-
-                        var matchScore = System.Text.RegularExpressions.Regex.Match(jsonPart, @"\""score\""\s*:\s*(\d+)");
-                        if (matchScore.Success) scoreStr = matchScore.Groups[1].Value;
-
-                        var matchComment = System.Text.RegularExpressions.Regex.Match(jsonPart, @"comment[^a-zA-Z0-9]*([\s\S]*?)(?:\""?suggested|\})", System.Text.RegularExpressions.RegexOptions.Singleline);
-                        if (matchComment.Success)
-                        {
-                            commentStr = matchComment.Groups[1].Value.Trim();
-                            commentStr = commentStr.TrimStart('"', ':').TrimEnd('"', ',', ' ');
-                        }
-
-                        var matchSuggested = System.Text.RegularExpressions.Regex.Match(jsonPart, @"suggested[^a-zA-Z0-9]*([\s\S]*?)\}", System.Text.RegularExpressions.RegexOptions.Singleline);
-                        if (matchSuggested.Success)
-                        {
-                            suggestedStr = matchSuggested.Groups[1].Value.Trim();
-                            suggestedStr = suggestedStr.TrimStart('"', ':').TrimEnd('"').Trim();
-                        }
-
-                        if (matchScore.Success || matchComment.Success || matchSuggested.Success)
-                        {
-                            WriteEvalLog($"Regex fallback result => score={scoreStr}, suggested={suggestedStr}");
-                            return (scoreStr, commentStr, suggestedStr);
-                        }
-
-                        return ("Err", jsonEx.Message, "");
-                    }
+                    WriteEvalLog("ERROR: Không thể parse kết quả đánh giá từ textResponse.");
+                    return ("Err", textResponse, "");
                 }
-
-                WriteEvalLog("ERROR: Không tìm thấy object JSON { ... } trong textResponse.");
-                return ("Err", textResponse, "");
+                return parsed;
             }
             catch (Exception ex)
             {
@@ -1519,7 +1582,148 @@ namespace CopyTranslateDST
             }
         }
 
-        private async Task<string?> ResolveAnythingWorkspaceSlugAsync(HttpClient client, string baseUrl)
+        private (string Score, string Comment, string Suggested) ParseEvaluationResponse(string textResponse)
+        {
+            string score = "?";
+            string comment = "";
+            string suggested = "";
+
+            if (string.IsNullOrWhiteSpace(textResponse))
+            {
+                return (score, comment, suggested);
+            }
+
+            textResponse = textResponse.Trim();
+
+            // Loại bỏ các bọc markdown ```json ... ``` hoặc ``` ... ``` nếu có
+            if (textResponse.StartsWith("```json", StringComparison.OrdinalIgnoreCase))
+            {
+                textResponse = textResponse.Substring(7);
+            }
+            else if (textResponse.StartsWith("```"))
+            {
+                textResponse = textResponse.Substring(3);
+            }
+
+            if (textResponse.EndsWith("```"))
+            {
+                textResponse = textResponse.Substring(0, textResponse.Length - 3);
+            }
+            textResponse = textResponse.Trim();
+
+            // 1. Tìm cặp dấu ngoặc nhọn hoặc ngoặc vuông để lấy chuỗi JSON
+            int start = textResponse.IndexOf('{');
+            int end = textResponse.LastIndexOf('}');
+
+            // Nếu không tìm thấy {}, kiểm tra xem có [] không (phòng trường hợp dùng ngoặc vuông thay vì ngoặc nhọn)
+            if (start < 0 || end < 0)
+            {
+                int startSq = textResponse.IndexOf('[');
+                int endSq = textResponse.LastIndexOf(']');
+                if (startSq >= 0 && endSq > startSq)
+                {
+                    // Nếu là mảng chứa object [{...}]
+                    int startInside = textResponse.IndexOf('{', startSq);
+                    int endInside = textResponse.LastIndexOf('}', endSq);
+                    if (startInside >= 0 && endInside > startInside)
+                    {
+                        start = startInside;
+                        end = endInside;
+                    }
+                    else
+                    {
+                        // Nếu là dạng [ "score": 7, ... ] thì thay thế ngoặc vuông bằng ngoặc nhọn để parse thử
+                        string rawContent = textResponse.Substring(startSq + 1, endSq - startSq - 1).Trim();
+                        textResponse = "{" + rawContent + "}";
+                        start = 0;
+                        end = textResponse.Length - 1;
+                    }
+                }
+            }
+
+            if (start >= 0 && end > start)
+            {
+                string jsonPart = textResponse.Substring(start, end - start + 1);
+                try
+                {
+                    // Sửa một số lỗi phổ biến của LLM trước khi parse
+                    string fixedJson = jsonPart.Replace("\"suggested:\":", "\"suggested\":")
+                                               .Replace("\"suggested:\"", "\",\"suggested\":\"");
+                    using var doc = JsonDocument.Parse(fixedJson);
+                    
+                    if (doc.RootElement.TryGetProperty("score", out var s))
+                        score = s.ToString();
+                    
+                    if (doc.RootElement.TryGetProperty("comment", out var c))
+                        comment = c.ValueKind == JsonValueKind.String ? c.GetString() ?? "" : c.ToString();
+                    
+                    if (doc.RootElement.TryGetProperty("suggested", out var sg))
+                        suggested = sg.ValueKind == JsonValueKind.String ? sg.GetString() ?? "" : sg.ToString();
+
+                    return (score, comment, suggested);
+                }
+                catch (JsonException)
+                {
+                    // Nếu lỗi parse JSON, tiếp tục chạy Regex trên jsonPart
+                    return ParseUsingRegex(jsonPart);
+                }
+            }
+
+            // 2. Nếu không tìm thấy dấu ngoặc nào, dùng Regex trực tiếp trên toàn bộ textResponse
+            return ParseUsingRegex(textResponse);
+        }
+
+        private (string Score, string Comment, string Suggested) ParseUsingRegex(string input)
+        {
+            string score = "?";
+            string comment = "";
+            string suggested = "";
+
+            // Trích xuất score
+            var matchScore = System.Text.RegularExpressions.Regex.Match(input, @"\""score\""\s*:\s*(\d+)", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            if (!matchScore.Success)
+            {
+                matchScore = System.Text.RegularExpressions.Regex.Match(input, @"\bscore\b\s*:\s*(\d+)", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            }
+            if (matchScore.Success)
+            {
+                score = matchScore.Groups[1].Value;
+            }
+
+            // Trích xuất comment
+            var matchComment = System.Text.RegularExpressions.Regex.Match(input, @"\""comment\""\s*:\s*\""([\s\S]*?)\""\s*(?:,|\})", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            if (!matchComment.Success)
+            {
+                matchComment = System.Text.RegularExpressions.Regex.Match(input, @"\bcomment\b\s*:\s*\""([\s\S]*?)\""\s*(?:,|\})", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            }
+            if (!matchComment.Success)
+            {
+                matchComment = System.Text.RegularExpressions.Regex.Match(input, @"\bcomment\b\s*:\s*([\s\S]*?)(?:\r?\n|,?\s*\""suggested|\r?\n?\s*suggested|\})", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            }
+            if (matchComment.Success)
+            {
+                comment = matchComment.Groups[1].Value.Trim().TrimStart('"', ':').TrimEnd('"', ',', ' ').Trim();
+            }
+
+            // Trích xuất suggested
+            var matchSuggested = System.Text.RegularExpressions.Regex.Match(input, @"\""suggested\""\s*:\s*\""([\s\S]*?)\""\s*(?:,|\})", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            if (!matchSuggested.Success)
+            {
+                matchSuggested = System.Text.RegularExpressions.Regex.Match(input, @"\bsuggested\b\s*:\s*\""([\s\S]*?)\""\s*(?:,|\})", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            }
+            if (!matchSuggested.Success)
+            {
+                matchSuggested = System.Text.RegularExpressions.Regex.Match(input, @"\bsuggested\b\s*:\s*([\s\S]*?)(?:\r?\n|\})", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            }
+            if (matchSuggested.Success)
+            {
+                suggested = matchSuggested.Groups[1].Value.Trim().TrimStart('"', ':').TrimEnd('"', ',', ' ').Trim();
+            }
+
+            return (score, comment, suggested);
+        }
+
+        private async Task<string?> ResolveAnythingWorkspaceSlugAsync(HttpClient client, string baseUrl, CancellationToken cancellationToken)
         {
             string url = $"{baseUrl}/api/v1/workspaces";
             WriteEvalLog("===== AnythingLLM WORKSPACES =====");
@@ -1527,7 +1731,7 @@ namespace CopyTranslateDST
 
             try
             {
-                var response = await client.GetAsync(url);
+                var response = await client.GetAsync(url, cancellationToken);
                 string raw = await response.Content.ReadAsStringAsync();
                 WriteEvalLog($"Status: {(int)response.StatusCode} {response.ReasonPhrase}");
                 WriteEvalLog($"Body: {raw}");
@@ -1721,6 +1925,259 @@ namespace CopyTranslateDST
             rtbLogEval.ScrollToCaret();
 
             System.Diagnostics.Debug.WriteLine($"[EVAL LOG][{time}] {message}");
+        }
+
+        private void BtnExportEval_Click(object? sender, EventArgs e)
+        {
+            if (dgvEval.Rows.Count == 0)
+            {
+                MessageBox.Show("Không có dữ liệu để xuất. Vui lòng mở file PO và chạy đánh giá trước.",
+                    "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            // Chỉ xuất các hàng đã được đánh giá (EvalScore không rỗng, không phải "...")
+            var evaluatedRows = dgvEval.Rows.Cast<DataGridViewRow>()
+                .Where(r => !r.IsNewRow)
+                .Where(r =>
+                {
+                    string score = r.Cells["EvalScore"].Value?.ToString() ?? "";
+                    return !string.IsNullOrWhiteSpace(score) && score != "...";
+                })
+                .ToList();
+
+            if (evaluatedRows.Count == 0)
+            {
+                MessageBox.Show("Chưa có hàng nào được đánh giá. Hãy chạy 'Đánh giá & Dịch' trước khi xuất.",
+                    "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            // Tên file companion: <pofilename>_eval.csv, cùng thư mục với file PO
+            string defaultCsvName = string.IsNullOrEmpty(_evalFilePath)
+                ? $"eval_{DateTime.Now:yyyyMMdd_HHmmss}.csv"
+                : Path.GetFileNameWithoutExtension(_evalFilePath) + "_eval.csv";
+            string defaultCsvDir = string.IsNullOrEmpty(_evalFilePath)
+                ? ""
+                : Path.GetDirectoryName(_evalFilePath) ?? "";
+
+            using var sfd = new SaveFileDialog
+            {
+                Title = "Lưu kết quả đánh giá",
+                Filter = "CSV Files (*.csv)|*.csv|All Files (*.*)|*.*",
+                FileName = defaultCsvName,
+                InitialDirectory = defaultCsvDir,
+                DefaultExt = "csv"
+            };
+
+            if (sfd.ShowDialog() != DialogResult.OK) return;
+
+            try
+            {
+                string evalDateStr = _lastEvalDateTime != DateTime.MinValue
+                    ? _lastEvalDateTime.ToString("yyyy-MM-dd HH:mm:ss")
+                    : DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+
+                var sb = new StringBuilder();
+
+                // Header — dùng dấu phẩy, bao trong ngoặc kép
+                sb.AppendLine("\"Ngày đánh giá\",\"Ngữ cảnh\",\"Tiếng Anh\",\"Tiếng Việt (hiện tại)\",\"Bản dịch đề xuất (AI)\",\"Điểm\",\"Nhận xét\"");
+
+                foreach (var row in evaluatedRows)
+                {
+                    string context  = EscapeCsvField(row.Cells["Context"].Value?.ToString() ?? "");
+                    string english  = EscapeCsvField(row.Cells["English"].Value?.ToString() ?? "");
+                    string viet     = EscapeCsvField(row.Cells["Vietnamese"].Value?.ToString() ?? "");
+                    string suggested = EscapeCsvField(row.Cells["SuggestedTrans"].Value?.ToString() ?? "");
+                    string score    = EscapeCsvField(row.Cells["EvalScore"].Value?.ToString() ?? "");
+                    string comment  = EscapeCsvField(row.Cells["EvalComment"].Value?.ToString() ?? "");
+
+                    sb.AppendLine($"{EscapeCsvField(evalDateStr)},{context},{english},{viet},{suggested},{score},{comment}");
+                }
+
+                // Ghi với UTF-8 BOM để Excel mở đúng tiếng Việt
+                File.WriteAllText(sfd.FileName, sb.ToString(), new UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
+
+                _evalCsvPath = sfd.FileName;
+                WriteEvalLog($"✔ Đã xuất {evaluatedRows.Count} hàng ra file: {sfd.FileName}");
+                MessageBox.Show($"Đã xuất {evaluatedRows.Count} hàng thành công!\n\nFile: {sfd.FileName}",
+                    "Xuất CSV hoàn tất", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Lỗi khi xuất file: {ex.Message}", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        /// <summary>
+        /// Load kết quả đánh giá từ file CSV vào DataGridView.
+        /// Key match: (Ngữ cảnh + Tiếng Anh). Trả về số hàng được fill.
+        /// Phương thức này được gọi từ thread pool nên không được trực tiếp truy cập UI.
+        /// Các thao tác UI được thực hiện qua Invoke.
+        /// </summary>
+        private int LoadEvalFromCsv(string csvPath)
+        {
+            if (!File.Exists(csvPath)) return 0;
+
+            // Đọc CSV: cột 0=Ngày, 1=Ngữ cảnh, 2=Tiếng Anh, 3=Tiếng Việt,
+            //             4=Đề xuất, 5=Điểm, 6=Nhận xét
+            var lines = File.ReadAllLines(csvPath, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+
+            // Build lookup: "context|english" -> (suggested, score, comment)
+            var lookup = new Dictionary<string, (string suggested, string score, string comment)>(StringComparer.Ordinal);
+            for (int i = 1; i < lines.Length; i++) // Bỏ qua header
+            {
+                string line = lines[i].Trim();
+                if (string.IsNullOrEmpty(line)) continue;
+
+                var fields = ParseCsvLine(line);
+                if (fields.Count < 7) continue;
+
+                string ctx  = fields[1];
+                string eng  = fields[2];
+                string sug  = fields[4];
+                string scr  = fields[5];
+                string cmt  = fields[6];
+
+                // Bỏ qua hàng lỗi hoặc chưa đánh giá
+                if (string.IsNullOrWhiteSpace(scr) || scr == "Lỗi" || scr == "Đã hủy") continue;
+
+                string key = ctx + "|" + eng;
+                lookup[key] = (sug, scr, cmt);
+            }
+
+            if (lookup.Count == 0) return 0;
+
+            // Fill vào DataGridView trên UI thread
+            int filled = 0;
+            this.Invoke((MethodInvoker)delegate
+            {
+                foreach (DataGridViewRow row in dgvEval.Rows)
+                {
+                    if (row.IsNewRow) continue;
+                    string ctx = row.Cells["Context"].Value?.ToString() ?? "";
+                    string eng = row.Cells["English"].Value?.ToString() ?? "";
+                    string key = ctx + "|" + eng;
+
+                    if (lookup.TryGetValue(key, out var result))
+                    {
+                        row.Cells["EvalScore"].Value    = result.score;
+                        row.Cells["EvalComment"].Value  = result.comment;
+                        row.Cells["SuggestedTrans"].Value = result.suggested;
+                        // Tô màu vàng nhạt để phân biệt hàng load từ CSV
+                        row.DefaultCellStyle.BackColor = System.Drawing.Color.LightYellow;
+                        filled++;
+                    }
+                }
+            });
+            return filled;
+        }
+
+        /// <summary>
+        /// Parse một dòng CSV có thể chứa dấu phẩy và ngoặc kép bên trong field.
+        /// </summary>
+        private static List<string> ParseCsvLine(string line)
+        {
+            var fields = new List<string>();
+            int i = 0;
+            while (i < line.Length)
+            {
+                if (line[i] == '"')
+                {
+                    i++; // bỏ qua dấu " mở
+                    var sb = new StringBuilder();
+                    while (i < line.Length)
+                    {
+                        if (line[i] == '"')
+                        {
+                            if (i + 1 < line.Length && line[i + 1] == '"')
+                            {
+                                sb.Append('"');
+                                i += 2;
+                            }
+                            else
+                            {
+                                i++; // bỏ qua dấu " đóng
+                                break;
+                            }
+                        }
+                        else
+                        {
+                            sb.Append(line[i++]);
+                        }
+                    }
+                    fields.Add(sb.ToString());
+                    if (i < line.Length && line[i] == ',') i++; // bỏ qua dấu phẩy
+                }
+                else
+                {
+                    int comma = line.IndexOf(',', i);
+                    if (comma == -1)
+                    {
+                        fields.Add(line.Substring(i));
+                        break;
+                    }
+                    fields.Add(line.Substring(i, comma - i));
+                    i = comma + 1;
+                }
+            }
+            return fields;
+        }
+
+        private async void BtnLoadCsv_Click(object? sender, EventArgs e)
+        {
+            if (dgvEval.Rows.Count == 0)
+            {
+                MessageBox.Show("Vui lòng mở file PO trước khi tải kết quả.",
+                    "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            string startDir = string.IsNullOrEmpty(_evalFilePath)
+                ? ""
+                : Path.GetDirectoryName(_evalFilePath) ?? "";
+
+            using var ofd = new OpenFileDialog
+            {
+                Title = "Chọn file kết quả đánh giá (CSV)",
+                Filter = "CSV Files (*.csv)|*.csv|All Files (*.*)|*.*",
+                InitialDirectory = startDir
+            };
+
+            if (ofd.ShowDialog() != DialogResult.OK) return;
+
+            try
+            {
+                btnLoadCsv!.Enabled = false;
+                btnLoadCsv.Text = "Đang tải...";
+
+                int loaded = await Task.Run(() => LoadEvalFromCsv(ofd.FileName));
+                _evalCsvPath = ofd.FileName;
+                WriteEvalLog($"✔ Đã tải {loaded} kết quả từ: {ofd.FileName}");
+                WriteEvalLog($"⏩ Các hàng đã tải (nền vàng) sẽ được bỏ qua khi chạy đánh giá.");
+
+                MessageBox.Show($"Đã tải {loaded} kết quả vào bảng.\nCác hàng này sẽ được bỏ qua khi chạy đánh giá.",
+                    "Tải CSV hoàn tất", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Lỗi khi tải CSV: {ex.Message}", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                btnLoadCsv!.Enabled = true;
+                btnLoadCsv.Text = "Tải CSV kết quả";
+            }
+        }
+
+        /// <summary>
+        /// Escape một giá trị để dùng trong CSV: bọc trong dấu ngoặc kép,
+        /// escape các dấu ngoặc kép bên trong bằng cách nhân đôi.
+        /// </summary>
+        private static string EscapeCsvField(string value)
+        {
+            if (value == null) return "\"\"";
+            return '"' + value.Replace("\"", "\"\"") + '"';
         }
     }
 }

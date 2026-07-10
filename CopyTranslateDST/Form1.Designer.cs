@@ -48,6 +48,7 @@ namespace CopyTranslateDST
             lbDuongDanBanDich = new Label();
             tabPageEval = new TabPage();
             btnEval = new Button();
+            btnCancelEval = new Button();
             btnMoBanDichEval = new Button();
             lbDuongDanBanDichEval = new Label();
             txtAnythingIp = new TextBox();
@@ -262,6 +263,7 @@ namespace CopyTranslateDST
             // tabPageEval
             // 
             tabPageEval.Controls.Add(btnEval);
+            tabPageEval.Controls.Add(btnCancelEval);
             tabPageEval.Controls.Add(btnMoBanDichEval);
             tabPageEval.Controls.Add(lbDuongDanBanDichEval);
             tabPageEval.Controls.Add(txtAnythingIp);
@@ -291,6 +293,19 @@ namespace CopyTranslateDST
             btnEval.Text = "Đánh giá & Dịch";
             btnEval.UseVisualStyleBackColor = true;
             btnEval.Click += btnEval_Click;
+            // 
+            // btnCancelEval
+            // 
+            btnCancelEval.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            btnCancelEval.Enabled = false;
+            btnCancelEval.Location = new Point(985, 18);
+            btnCancelEval.Margin = new Padding(3, 2, 3, 2);
+            btnCancelEval.Name = "btnCancelEval";
+            btnCancelEval.Size = new Size(150, 22);
+            btnCancelEval.TabIndex = 14;
+            btnCancelEval.Text = "Hủy đánh giá";
+            btnCancelEval.UseVisualStyleBackColor = true;
+            btnCancelEval.Click += btnCancelEval_Click;
             // 
             // btnMoBanDichEval
             // 
@@ -432,6 +447,7 @@ namespace CopyTranslateDST
         private RichTextBox rtbLog;
         private TabPage tabPageEval;
         private Button btnEval;
+        private Button btnCancelEval;
         private Button btnMoBanDichEval;
         private Label lbDuongDanBanDichEval;
         private TextBox txtAnythingApiKey;

@@ -553,8 +553,37 @@ namespace CopyTranslateDST
                             string finalMsgId = fullMsgId.ToString();
                             if (!string.IsNullOrEmpty(finalMsgId) && msgstrIndex != -1)
                             {
-                                WriteLog($"[{item.index + 1}/{totalCount}] Đang dịch: {finalMsgId}");
-                                string translatedText = await TranslateTextAsync(client, finalMsgId);
+                                string translatedText = "";
+
+                                while (!token.IsCancellationRequested)
+                                {
+                                    // Kiểm tra giới hạn câu dịch
+                                    if (Interlocked.CompareExchange(ref totalSuccessCount, 0, 0) >= maxToTranslate)
+                                    {
+                                        cts.Cancel();
+                                        return;
+                                    }
+
+                                    WriteLog($"[{item.index + 1}/{totalCount}] Đang dịch: {finalMsgId}");
+                                    translatedText = await TranslateTextAsync(client, finalMsgId, token);
+
+                                    // Nếu nhận được lỗi, không ghi vào mà delay 10s rồi gửi lại request
+                                    if (!string.IsNullOrEmpty(translatedText) && translatedText.StartsWith("Error in translation", StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        WriteLog($"[{item.index + 1}/{totalCount}] Nhận được '{translatedText}'. Không ghi vào, tạm dừng 10s rồi gửi lại request...");
+                                        await Task.Delay(10000, token);
+                                        continue;
+                                    }
+
+                                    // Dịch thành công
+                                    break;
+                                }
+
+                                if (token.IsCancellationRequested || string.IsNullOrEmpty(translatedText) || translatedText.StartsWith("Error in translation", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    return;
+                                }
+
                                 WriteLog($"   -> [{item.index + 1}] Kết quả: {translatedText}");
 
                                 lines[msgstrIndex] = $"msgstr \"{translatedText}\"";
@@ -743,7 +772,7 @@ namespace CopyTranslateDST
             File.WriteAllLines(filePath, outputLines, Encoding.UTF8);
         }
 
-        private async Task<string> TranslateTextAsync(HttpClient client, string text)
+        private async Task<string> TranslateTextAsync(HttpClient client, string text, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(text)) return "";
 
@@ -759,7 +788,7 @@ namespace CopyTranslateDST
                 });
 
                 string url = $"https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=vi&dt=t&q={WebUtility.UrlEncode(protectedText)}";
-                var response = await client.GetStringAsync(url);
+                var response = await client.GetStringAsync(url, cancellationToken);
                 
                 string translatedResult = "";
                 using (JsonDocument doc = JsonDocument.Parse(response))
@@ -788,6 +817,10 @@ namespace CopyTranslateDST
                 }
 
                 return translatedResult;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
